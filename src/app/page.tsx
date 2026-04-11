@@ -1,9 +1,25 @@
+"use client";
+
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { SplashScreen } from "@/components/auth/splash-screen";
+import { LoginForm } from "@/components/auth/login-form";
+
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white">
-      <h1 className="text-3xl font-bold text-black">
-        CMA Connect - Initialisation réussie !
-      </h1>
+    <main className="min-h-screen">
+      <AnimatePresence mode="wait">
+        {showSplash ? (
+          <SplashScreen
+            key="splash"
+            onComplete={() => setShowSplash(false)}
+          />
+        ) : (
+          <LoginForm key="login" />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
