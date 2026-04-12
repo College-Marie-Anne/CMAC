@@ -1,46 +1,106 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { typedResolver } from "@/lib/form-resolver";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  AlertCircle,
+  CalendarDays,
+  KeyRound,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { GoldenParticles } from "@/components/ui/golden-particles-lazy";
+import { loginSchema, type LoginFormData } from "@/lib/validations/auth";
+import { loginAction } from "@/actions/auth";
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [needsDob, setNeedsDob] = useState(false);
+  const [needsOtp, setNeedsOtp] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: typedResolver<LoginFormData>(loginSchema),
+    defaultValues: { identifier: "", password: "", dob: undefined, otp_code: undefined },
+  });
+
+  const onSubmit = (data: LoginFormData) => {
+    setServerError(null);
+    startTransition(async () => {
+      const result = await loginAction(data);
+      if (!result.success) {
+        if (result.needsDob && !needsDob) {
+          setNeedsDob(true);
+          setServerError(result.error ?? null);
+        } else if (result.needsOtp && !needsOtp) {
+          setNeedsOtp(true);
+          setServerError(result.error ?? null);
+        } else {
+          setServerError(result.error ?? null);
+        }
+      }
+    });
+  };
+
+  const handleDobClear = () => {
+    setNeedsDob(false);
+    setNeedsOtp(false);
+    setValue("dob", undefined);
+    setValue("otp_code", undefined);
+    setServerError(null);
+  };
+
+  const inputStyle = {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.1)",
+  };
+
+  const inputErrorStyle = {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(220,38,38,0.5)",
   };
 
   return (
     <motion.div
       className="relative flex min-h-screen w-full items-center justify-center px-5 py-10 overflow-hidden"
-      style={{
-        background: "linear-gradient(160deg, #3a000f 0%, #5c0018 30%, #800020 60%, #5c0018 100%)",
-      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
     >
       <GoldenParticles />
 
-      {/* Ligne dorée décorative horizontale */}
+      {/* Lignes dorées décoratives */}
       <motion.div
         className="absolute top-0 left-0 w-full h-[1px]"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(212,160,23,0.3), transparent)" }}
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,160,23,0.3), transparent)",
+        }}
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 1.2, delay: 0.3 }}
       />
       <motion.div
         className="absolute bottom-0 left-0 w-full h-[1px]"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(212,160,23,0.3), transparent)" }}
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,160,23,0.3), transparent)",
+        }}
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 1.2, delay: 0.5 }}
@@ -59,7 +119,7 @@ export function LoginForm() {
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Logo avec pulsation subtile */}
+        {/* Logo */}
         <motion.div
           className="mb-6"
           initial={{ scale: 0.5, opacity: 0 }}
@@ -93,7 +153,7 @@ export function LoginForm() {
           </motion.div>
         </motion.div>
 
-        {/* Titre avec apparition séquentielle */}
+        {/* Titre */}
         <motion.h1
           className="text-xl font-semibold text-white text-center"
           initial={{ y: -15, opacity: 0 }}
@@ -112,68 +172,177 @@ export function LoginForm() {
           Connectez-vous pour accéder à CMAC
         </motion.p>
 
-        {/* Formulaire avec entrée échelonnée */}
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
+        {/* Message d'erreur serveur */}
+        <AnimatePresence>
+          {serverError && (
+            <motion.div
+              className="w-full mb-4 flex items-start gap-2.5 rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: "rgba(220,38,38,0.12)",
+                border: "1px solid rgba(220,38,38,0.25)",
+                color: "#fca5a5",
+              }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <span>{serverError}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Formulaire */}
+        <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-4">
           {/* Champ identifiant */}
           <motion.div
-            className="relative"
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.55 }}
           >
-            <User
-              className="absolute left-3.5 top-1/2 -translate-y-1/2"
-              size={16}
-              style={{ color: "#F5DEB3" }}
-            />
-            <Input
-              type="text"
-              placeholder="Email, username ou nom complet"
-              aria-label="Email, username ou nom complet"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              className="w-full pl-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-            />
+            <div className="relative">
+              <User
+                className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                size={16}
+                style={{ color: "#F5DEB3" }}
+              />
+              <Input
+                type="text"
+                placeholder="Email, username ou nom complet"
+                aria-label="Email, username ou nom complet"
+                {...register("identifier", {
+                  onChange: () => {
+                    if (needsDob) handleDobClear();
+                  },
+                })}
+                disabled={isPending}
+                className="w-full pl-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30 disabled:opacity-50"
+                style={errors.identifier ? inputErrorStyle : inputStyle}
+              />
+            </div>
+            {errors.identifier && (
+              <p className="mt-1.5 text-xs" style={{ color: "#fca5a5" }}>
+                {errors.identifier.message}
+              </p>
+            )}
           </motion.div>
 
           {/* Champ mot de passe */}
           <motion.div
-            className="relative"
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.65 }}
           >
-            <Lock
-              className="absolute left-3.5 top-1/2 -translate-y-1/2"
-              size={16}
-              style={{ color: "#F5DEB3" }}
-            />
-            <Input
-              type={showPassword ? "text" : "password"}
-              placeholder="Mot de passe"
-              aria-label="Mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
-              style={{ color: "#F5DEB3" }}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
+            <div className="relative">
+              <Lock
+                className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                size={16}
+                style={{ color: "#F5DEB3" }}
+              />
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Mot de passe"
+                aria-label="Mot de passe"
+                {...register("password")}
+                disabled={isPending}
+                className="w-full pl-10 pr-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30 disabled:opacity-50 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                style={errors.password ? inputErrorStyle : inputStyle}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={
+                  showPassword
+                    ? "Masquer le mot de passe"
+                    : "Afficher le mot de passe"
+                }
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
+                style={{ color: "#F5DEB3" }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="mt-1.5 text-xs" style={{ color: "#fca5a5" }}>
+                {errors.password.message}
+              </p>
+            )}
           </motion.div>
+
+          {/* Champ date de naissance — apparaît dynamiquement si homonymes */}
+          <AnimatePresence>
+            {needsDob && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="relative">
+                  <CalendarDays
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    size={16}
+                    style={{ color: "#F5DEB3" }}
+                  />
+                  <Input
+                    type="date"
+                    placeholder="Date de naissance"
+                    aria-label="Date de naissance"
+                    {...register("dob")}
+                    disabled={isPending}
+                    className="w-full pl-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30 disabled:opacity-50 [color-scheme:dark]"
+                    style={inputStyle}
+                  />
+                </div>
+                <p
+                  className="mt-1.5 text-xs"
+                  style={{ color: "rgba(245,222,179,0.5)" }}
+                >
+                  Précisez votre date de naissance pour identifier votre compte
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Champ code OTP — apparaît si même nom + même DOB */}
+          <AnimatePresence>
+            {needsOtp && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="relative">
+                  <KeyRound
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    size={16}
+                    style={{ color: "#F5DEB3" }}
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Code reçu par email"
+                    aria-label="Code de vérification"
+                    {...register("otp_code")}
+                    disabled={isPending}
+                    className="w-full pl-10 h-11 rounded-xl text-sm text-white placeholder:text-white/30 disabled:opacity-50 tracking-widest text-center"
+                    style={inputStyle}
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                  />
+                </div>
+                <p
+                  className="mt-1.5 text-xs"
+                  style={{ color: "rgba(245,222,179,0.5)" }}
+                >
+                  Entrez le code à 6 chiffres reçu sur votre boîte mail
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Mot de passe oublié */}
           <motion.div
@@ -191,28 +360,37 @@ export function LoginForm() {
             </Link>
           </motion.div>
 
-          {/* Bouton connexion avec animation hover */}
+          {/* Bouton connexion */}
           <motion.div
             initial={{ y: 15, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.8 }}
           >
             <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={isPending ? undefined : { scale: 1.02 }}
+              whileTap={isPending ? undefined : { scale: 0.98 }}
             >
               <Button
                 type="submit"
                 size="lg"
-                className="w-full h-11 rounded-xl text-base font-semibold tracking-wide transition-all"
+                disabled={isPending}
+                className="w-full h-11 rounded-xl text-base font-semibold tracking-wide transition-all disabled:opacity-70"
                 style={{
-                  background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)",
+                  background:
+                    "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)",
                   color: "#3a000f",
                   border: "none",
                   boxShadow: "0 4px 15px rgba(212,160,23,0.3)",
                 }}
               >
-                Se connecter
+                {isPending ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    Connexion...
+                  </span>
+                ) : (
+                  "Se connecter"
+                )}
               </Button>
             </motion.div>
           </motion.div>
@@ -231,10 +409,21 @@ export function LoginForm() {
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.95 }}
           >
-            <div className="w-full" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }} />
+            <div
+              className="w-full"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+            />
           </motion.div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-4" style={{ backgroundColor: "transparent", color: "rgba(255,255,255,0.3)" }}>ou</span>
+            <span
+              className="px-4"
+              style={{
+                backgroundColor: "transparent",
+                color: "rgba(255,255,255,0.3)",
+              }}
+            >
+              ou
+            </span>
           </div>
         </motion.div>
 
@@ -249,6 +438,7 @@ export function LoginForm() {
           Pas encore de compte ?{" "}
           <Link
             href="/register"
+            scroll={false}
             className="font-medium transition-colors"
             style={{ color: "#F5DEB3" }}
           >
@@ -261,9 +451,6 @@ export function LoginForm() {
       <motion.p
         className="absolute bottom-5 w-full text-center text-[11px] tracking-widest uppercase"
         style={{ color: "rgba(245,222,179,0.35)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.1 }}
       >
         CMA &middot; Connexion &middot; Mentorat
       </motion.p>

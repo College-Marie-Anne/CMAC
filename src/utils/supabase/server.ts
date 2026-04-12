@@ -15,8 +15,13 @@ export async function createClient() {
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)
           )
-        } catch {
-          // Le middleware s'occupera de rafraîchir les cookies
+        } catch (err) {
+          // Échec attendu dans les Server Components (cookies read-only).
+          // Le middleware rafraîchit les cookies en amont.
+          // On log uniquement en dev pour ne pas polluer les logs prod.
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[supabase] Cookie set failed (expected in SC):', err instanceof Error ? err.message : String(err))
+          }
         }
       },
     },

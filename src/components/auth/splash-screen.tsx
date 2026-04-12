@@ -15,7 +15,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 2800);
+    }, 5000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -38,17 +38,20 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               setIsVisible(false);
             }
           }}
+          /* Fondu doux à l'entrée ET à la sortie */
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: "easeInOut" }}
+          transition={{ duration: 1, ease: "easeInOut" }}
         >
           <GoldenParticles />
 
-          {/* Logo avec fond transparent via clip circulaire */}
+          {/* Logo */}
           <motion.div
             className="relative"
-            initial={{ scale: 0.7, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
             <div
               className="w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden flex items-center justify-center"
@@ -69,25 +72,15 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           </motion.div>
 
           {/* Texte */}
-          <motion.div
-            className="mt-8 flex flex-col items-center w-full"
-            initial={{ opacity: 0, y: 15 }}
+          <motion.p
+            className="absolute left-0 right-0 text-center text-xs sm:text-sm tracking-[0.25em] uppercase font-light"
+            style={{ color: "#D4A017", top: "calc(50% + 110px)", paddingLeft: "0.25em" }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
+            transition={{ duration: 0.8, delay: 0.9, ease: "easeOut" }}
           >
-            <p
-              className="text-xs sm:text-sm tracking-[0.25em] uppercase font-light"
-              style={{ color: "#D4A017" }}
-            >
-              Connexion
-            </p>
-            <p
-              className="mt-1 text-xs sm:text-sm tracking-[0.25em] uppercase font-light"
-              style={{ color: "#D4A017" }}
-            >
-              Mentorat &middot; Excellence
-            </p>
-          </motion.div>
+            CMA &middot; Connexion &middot; Mentorat
+          </motion.p>
 
           {/* Indicateur skip */}
           <motion.p
@@ -95,7 +88,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             style={{ color: "rgba(245,222,179,0.35)" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.5 }}
+            transition={{ delay: 1.6, duration: 0.6 }}
           >
             Touchez pour continuer
           </motion.p>

@@ -21,8 +21,9 @@ const allParticles = [
   { id: 14, x: 5, y: 70, s: "w-[3px] h-[3px]", dur: 6, del: 0.9 },
 ];
 
-function subscribe() {
-  return () => {};
+function subscribe(callback: () => void) {
+  window.addEventListener("resize", callback);
+  return () => window.removeEventListener("resize", callback);
 }
 
 function getSnapshot() {

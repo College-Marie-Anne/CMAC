@@ -14,7 +14,25 @@
       "Bash(npm install:*)",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('react:', p.dependencies.react\\); console.log\\('next:', p.dependencies.next\\);\")",
       "Bash(node -e ':*)",
-      "Bash(ls -la /c/Projets/CMAC/.env*)"
+      "Bash(ls -la /c/Projets/CMAC/.env*)",
+      "Bash(ls C:/Projets/CMAC/next.config.*)",
+      "Bash(ls C:/Projets/CMAC/tailwind.config.*)",
+      "Bash(npx shadcn@latest add select checkbox label -y)",
+      "Bash(npx shadcn@latest add card -y)",
+      "Bash(grep -c \"LineChart\\\\|PieChart\\\\|BarChart\\\\|ResponsiveContainer\" src/components/admin/charts/*.tsx)",
+      "Bash(ls -la C:/Projets/CMAC/.env*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(ls C:/Projets/CMAC/src/lib/rate-limit*)",
+      "Read(//tmp/**)",
+      "Bash(grep -i \"^CREATE TABLE\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep \"ALTER TABLE.*ENABLE ROW LEVEL SECURITY\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep \"CREATE POLICY\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep -n \"ON DELETE RESTRICT\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep -n \"chk_promotions\\\\|chk_profiles\\\\|BETWEEN 1980\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep -n \"CREATE POLICY.*ON desired_study_fields\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep -n \"CREATE POLICY.*push_subscriptions\\\\|push_subscriptions.*SECURITY DEFINER\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
+      "Bash(grep -E \"\\\\`/[a-z]\" '/c/Users/Admin/.claude/projects/C--Projets-CMAC/memory/project_cma_connect.md')",
+      "Bash([ ! -f \"/c/Projets/CMAC/src/app/$page/page.tsx\" ])"
     ]
   }
 }

@@ -118,14 +118,14 @@ export default function NotFound() {
         </motion.div>
 
         {/* Texte avec animation de machine à écrire */}
-        <motion.h2
+        <motion.h1
           className="text-xl sm:text-2xl font-semibold text-white mb-3"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
         >
           Page introuvable
-        </motion.h2>
+        </motion.h1>
 
         <motion.p
           className="text-sm leading-relaxed mb-10 max-w-[280px]"
@@ -145,7 +145,7 @@ export default function NotFound() {
           transition={{ duration: 0.5, delay: 1.0 }}
         >
           <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-            <Link href="/">
+            <Link href="/login">
               <Button
                 size="lg"
                 className="rounded-xl text-sm font-semibold tracking-wide gap-2 px-8 h-11"

@@ -71,8 +71,8 @@
   --secondary-foreground: #ffffff;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #D4A017;
+  --accent-foreground: #1A1A1A;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -137,4 +137,21 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Empêche le flash blanc avant l'hydratation React.
+   Ce fond est peint immédiatement par le navigateur, avant tout JS. */
+html,
+body {
+  background-color: #3a000f !important;
+  overscroll-behavior: none;
+}
+
+/* Override l'autofill du navigateur qui met un fond blanc sur les inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255,255,255,0.08) inset !important;
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
