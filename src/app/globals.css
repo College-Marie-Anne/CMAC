@@ -147,6 +147,28 @@ body {
   overscroll-behavior: none;
 }
 
+/* Force light mode inside admin layout — dark mode is user-pages only */
+[data-theme="light"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #800020;
+  --primary-foreground: #ffffff;
+  --secondary: #006B3F;
+  --secondary-foreground: #ffffff;
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: #D4A017;
+  --accent-foreground: #1A1A1A;
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: #800020;
+  color-scheme: light;
+}
+
 /* Override l'autofill du navigateur qui met un fond blanc sur les inputs */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

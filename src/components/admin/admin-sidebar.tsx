@@ -21,6 +21,7 @@ import {
   X,
   Crown,
   ShieldCheck,
+  ArrowLeft,
 } from "lucide-react";
 
 interface AdminProfile {
@@ -74,8 +75,17 @@ export function AdminSidebar({ profile }: { profile: AdminProfile }) {
         </div>
       </div>
 
+      {/* Retour au feed */}
+      <a
+        href="/feed"
+        className="mx-3 mt-2 mb-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        <ArrowLeft size={14} />
+        Retour au feed
+      </a>
+
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto" role="navigation" aria-label="Navigation admin">
+      <nav className="flex-1 py-2 px-3 space-y-1 overflow-y-auto" role="navigation" aria-label="Navigation admin">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

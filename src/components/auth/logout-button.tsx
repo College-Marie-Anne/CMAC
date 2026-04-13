@@ -94,7 +94,7 @@ export function LogoutButton({ variant = "feed" }: LogoutButtonProps) {
                     variant="outline"
                     onClick={() => setShowConfirm(false)}
                     disabled={isPending}
-                    className="flex-1 h-10 rounded-xl"
+                    className="flex-1 h-10 rounded-xl border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
                   >
                     Annuler
                   </Button>

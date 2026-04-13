@@ -45,7 +45,7 @@ export default async function AdminLayout({
     .eq("id", user.id);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" data-theme="light" style={{ colorScheme: "light" }}>
       <AdminSidebar
         profile={{
           firstName: profile.first_name,
