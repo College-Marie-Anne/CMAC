@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -167,20 +168,17 @@ export async function registerAction(
   });
 
   if (profileError) {
-    // Cleanup : supprimer le user Auth orphelin si le profil échoue.
-    // On utilise signOut + RPC plutôt que auth.admin (qui requiert service_role).
-    // Si le cleanup échoue, on log l'erreur pour investigation manuelle.
+    // Cleanup : supprimer le user Auth orphelin si le profil échoue en utilisant l'admin client
     try {
-      await supabase.auth.signOut();
-      // L'admin devra purger manuellement le user auth orphelin si nécessaire.
-      // L'user ne peut pas se connecter car pas de profil → login échouera.
+      const adminClient = createAdminClient();
+      await adminClient.auth.admin.deleteUser(userId);
       console.error(
         `[register] Profil INSERT échoué pour auth user ${userId}. ` +
-        `Auth user orphelin potentiel. Erreur: ${profileError.message}`
+        `User Auth supprimé via adminClient. Erreur: ${profileError.message}`
       );
     } catch (cleanupErr) {
       console.error(
-        `[register] Échec cleanup pour auth user ${userId}:`,
+        `[register] Échec suppression admin pour auth user ${userId}:`,
         cleanupErr
       );
     }
