@@ -24,7 +24,6 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  // Vérifier que c'est un admin actif
   if (profileErr || !profile || profile.role !== "admin" || profile.status !== "active") {
     redirect("/feed");
   }

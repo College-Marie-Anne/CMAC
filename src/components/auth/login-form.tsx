@@ -149,6 +149,7 @@ export function LoginForm() {
               className="object-cover scale-125"
               style={{ width: "auto", height: "auto" }}
               priority
+              loading="eager"
             />
           </motion.div>
         </motion.div>

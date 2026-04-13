@@ -263,3 +263,10 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
   revalidatePath("/feed");
   redirect("/feed");
 }
+
+export async function logoutAction(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath("/");
+  redirect("/login");
+}

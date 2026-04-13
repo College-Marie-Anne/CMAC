@@ -23,7 +23,7 @@ const authRoutes = ["/", "/login", "/register", "/forgot-password", "/pending"];
 // Routes accessibles par les authentifiées même avec must_change_password
 const changePasswordRoute = "/auth/change-password";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {

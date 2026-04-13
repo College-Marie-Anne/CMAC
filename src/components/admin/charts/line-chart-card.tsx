@@ -8,8 +8,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
 } from "recharts";
+import { ChartContainer } from "./chart-container";
 
 interface LineChartCardProps {
   title: string;
@@ -25,34 +25,32 @@ export function LineChartCard({ title, data, lines, xDataKey }: LineChartCardPro
         <CardTitle className="text-sm font-medium text-gray-700">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey={xDataKey} tick={{ fontSize: 11, fill: "#999" }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#999" }} tickLine={false} axisLine={false} />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "none",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-                  fontSize: 12,
-                }}
+        <ChartContainer>
+          <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey={xDataKey} tick={{ fontSize: 11, fill: "#999" }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#999" }} tickLine={false} axisLine={false} />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 12,
+                border: "none",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                fontSize: 12,
+              }}
+            />
+            {lines.map((line) => (
+              <Line
+                key={line.dataKey}
+                type="monotone"
+                dataKey={line.dataKey}
+                stroke={line.color}
+                strokeWidth={2}
+                dot={false}
+                name={line.name}
               />
-              {lines.map((line) => (
-                <Line
-                  key={line.dataKey}
-                  type="monotone"
-                  dataKey={line.dataKey}
-                  stroke={line.color}
-                  strokeWidth={2}
-                  dot={false}
-                  name={line.name}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+            ))}
+          </LineChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

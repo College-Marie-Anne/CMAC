@@ -116,7 +116,7 @@ export const step3Schema = z
       .regex(/[a-z]/, "Au moins une minuscule")
       .regex(/[0-9]/, "Au moins un chiffre"),
     confirm_password: z.string().min(1, "Confirmez le mot de passe"),
-    accept_terms: z.literal(true, "Vous devez accepter les CGU"),
+    accept_terms: z.boolean().refine((v) => v === true, "Vous devez accepter les CGU"),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Les mots de passe ne correspondent pas",

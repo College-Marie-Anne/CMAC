@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -16,13 +17,11 @@ import {
   Link2,
   FileText,
   Headphones,
-  LogOut,
   Menu,
   X,
   Crown,
   ShieldCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface AdminProfile {
   firstName: string;
@@ -54,12 +53,6 @@ export function AdminSidebar({ profile }: { profile: AdminProfile }) {
     return pathname.startsWith(href);
   };
 
-  const handleLogout = async () => {
-    const { createClient } = await import("@/utils/supabase/client");
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -147,15 +140,7 @@ export function AdminSidebar({ profile }: { profile: AdminProfile }) {
             </div>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="w-full justify-start gap-2 text-xs h-9 rounded-lg"
-          style={{ color: "rgba(255,255,255,0.4)" }}
-        >
-          <LogOut size={14} />
-          Déconnexion
-        </Button>
+        <LogoutButton variant="admin" />
       </div>
     </div>
   );

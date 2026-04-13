@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { LogoutButton } from "@/components/auth/logout-button";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -12,7 +13,6 @@ import {
   Handshake,
   Award,
   HeadphonesIcon,
-  LogOut,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -141,14 +141,14 @@ export default async function FeedPage() {
           {/* Actions bas */}
           <div className="space-y-1 pt-4 border-t border-gray-100">
             {isAdmin && (
-              <Link
+              <a
                 href="/admin"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
                 style={{ color: "#D4A017" }}
               >
                 <LayoutDashboard size={18} />
                 Dashboard Admin
-              </Link>
+              </a>
             )}
             <Link
               href="/settings"
@@ -157,15 +157,7 @@ export default async function FeedPage() {
               <Settings size={18} />
               Paramètres
             </Link>
-            <form action="/api/auth/signout" method="post">
-              <button
-                type="submit"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-gray-50 transition-colors w-full"
-              >
-                <LogOut size={18} />
-                Déconnexion
-              </button>
-            </form>
+            <LogoutButton variant="feed" />
           </div>
         </aside>
 

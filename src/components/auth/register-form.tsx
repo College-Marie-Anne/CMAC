@@ -1176,7 +1176,7 @@ function Step3Form({
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<Step3Data>({
     resolver: typedResolver<Step3Data>(step3Schema),
-    defaultValues: { username: "", email: "", password: "", confirm_password: "", accept_terms: false as unknown as true },
+    defaultValues: { username: "", email: "", password: "", confirm_password: "", accept_terms: false },
   });
 
   return (
@@ -1216,7 +1216,7 @@ function Step3Form({
         <Checkbox
           id="terms"
           checked={watch("accept_terms") === true}
-          onCheckedChange={(c) => setValue("accept_terms", c === true ? true : (false as unknown as true), { shouldValidate: true })}
+          onCheckedChange={(c) => setValue("accept_terms", c === true, { shouldValidate: true })}
           disabled={isPending}
         />
         <label htmlFor="terms" className="text-xs leading-relaxed cursor-pointer" style={{ color: "rgba(255,255,255,0.6)" }}>
