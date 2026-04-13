@@ -312,11 +312,11 @@ export default function PromotionsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-gray-500 mb-1.5 block">Année de début</Label>
-                <YearSelect value={newStart} onChange={setNewStart} placeholder="Début" />
+                <YearSelect value={newStart} onChange={setNewStart} placeholder="Début" variant="light" />
               </div>
               <div>
                 <Label className="text-xs text-gray-500 mb-1.5 block">Année de fin</Label>
-                <YearSelect value={newEnd} onChange={setNewEnd} placeholder="Fin" />
+                <YearSelect value={newEnd} onChange={setNewEnd} placeholder="Fin" variant="light" />
               </div>
             </div>
             <div>

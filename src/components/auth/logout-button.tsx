@@ -30,27 +30,15 @@ export function LogoutButton({ variant = "feed" }: LogoutButtonProps) {
       <button
         type="button"
         onClick={() => setShowConfirm(true)}
-        className={variant === "feed" ? feedClass : undefined}
-        style={variant === "admin" ? { color: "rgba(255,255,255,0.4)" } : undefined}
+        className={
+          variant === "admin"
+            ? "w-full flex items-center justify-start gap-2 text-xs h-9 px-3 rounded-lg hover:bg-white/10 transition-colors"
+            : feedClass
+        }
+        style={{ color: variant === "admin" ? "rgba(255,255,255,0.4)" : undefined }}
       >
-        {variant === "admin" ? (
-          <Button
-            variant="ghost"
-            className={adminClass}
-            style={{ color: "rgba(255,255,255,0.4)" }}
-            asChild
-          >
-            <span>
-              <LogOut size={14} />
-              Déconnexion
-            </span>
-          </Button>
-        ) : (
-          <>
-            <LogOut size={18} />
-            Déconnexion
-          </>
-        )}
+        <LogOut size={variant === "admin" ? 14 : 18} />
+        Déconnexion
       </button>
 
       {/* Modale de confirmation */}

@@ -19,6 +19,7 @@ interface YearSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  variant?: "dark" | "light";
 }
 
 export function YearSelect({
@@ -27,6 +28,7 @@ export function YearSelect({
   placeholder = "Sélectionner une année",
   disabled = false,
   className = "",
+  variant = "dark",
 }: YearSelectProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -98,8 +100,10 @@ export function YearSelect({
           disabled
             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
             : open
-              ? "border-cma-bordeaux bg-white"
-              : "border-white/20 bg-white/[0.08] text-white hover:bg-white/[0.12]"
+              ? "border-cma-bordeaux bg-white text-gray-900"
+              : variant === "light"
+                ? "border-gray-200 bg-white text-gray-900 hover:bg-gray-50"
+                : "border-white/20 bg-white/[0.08] text-white hover:bg-white/[0.12]"
         }`}
       >
         <span className={value ? "" : "opacity-50"}>

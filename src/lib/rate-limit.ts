@@ -52,6 +52,9 @@ export const globalLimiter = createLimiter("global", 100, "1 m");
 // ─── Change password (par user ID, session active) ───
 export const changePasswordLimiter = createLimiter("change-pwd", 3, "1 h");
 
+// ─── Account deactivation (par user ID) ───
+export const deactivateAccountLimiter = createLimiter("deactivate", 1, "1 d");
+
 /**
  * Validate and sanitize an IP address.
  * Strips port suffixes, rejects obviously invalid values,

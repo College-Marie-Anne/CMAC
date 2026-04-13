@@ -33,7 +33,8 @@
       "Bash(grep -n \"CREATE POLICY.*push_subscriptions\\\\|push_subscriptions.*SECURITY DEFINER\" \"C:/Projets/CMAC/supabase/migrations\"/*.sql)",
       "Bash(grep -E \"\\\\`/[a-z]\" '/c/Users/Admin/.claude/projects/C--Projets-CMAC/memory/project_cma_connect.md')",
       "Bash([ ! -f \"/c/Projets/CMAC/src/app/$page/page.tsx\" ])",
-      "Bash(grep \"CREATE INDEX\" /c/Projets/CMAC/supabase/migrations/*.sql)"
+      "Bash(grep \"CREATE INDEX\" /c/Projets/CMAC/supabase/migrations/*.sql)",
+      "Bash(npx shadcn@latest add textarea -y)"
     ]
   }
 }
