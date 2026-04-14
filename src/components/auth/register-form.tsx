@@ -116,10 +116,37 @@ function TagInput({
 }) {
   const [input, setInput] = useState("");
 
-  const addTag = () => {
-    const trimmed = input.trim();
-    if (trimmed && values.length < max && !values.includes(trimmed)) {
-      onChange([...values, trimmed]);
+  // Fonction de normalisation pour éviter les doublons
+  const normalize = (str: string) =>
+    str
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Supprime accents
+      .replace(/[^a-z0-9\s-]/g, "") // Garde lettres, chiffres, espaces, tirets
+      .replace(/\s+/g, " "); // Normalise espaces
+
+  const addTag = (tag?: string) => {
+    const toAdd = tag || input.trim();
+    if (!toAdd) return;
+
+    // Séparer par virgules, points-virgules, etc.
+    const separators = /[;,|]/;
+    const tags = toAdd.split(separators).map(t => t.trim()).filter(t => t);
+
+    const newValues = [...values];
+    let added = false;
+
+    for (const t of tags) {
+      const normalized = normalize(t);
+      if (normalized && newValues.length < max && !newValues.some(v => normalize(v) === normalized)) {
+        newValues.push(t.trim());
+        added = true;
+      }
+    }
+
+    if (added) {
+      onChange(newValues);
       setInput("");
     }
   };
@@ -149,6 +176,7 @@ function TagInput({
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onBlur={() => addTag()}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -739,7 +767,7 @@ function EleveSubForm({
           onClick={onBack}
           variant="outline"
           className="h-11 rounded-xl gap-1"
-          style={{ borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}
+          style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}
         >
           <ArrowLeft size={14} />
           Retour
@@ -806,6 +834,35 @@ function Step2AlumniForm({
   const selectedActivities = watch("activities");
   const isNewPromo = watch("is_new_promo");
   const selectedPromoName = watch("promotion_name");
+  const [promoSearch, setPromoSearch] = useState("");
+  const promoSearchRef = useRef<HTMLInputElement | null>(null);
+
+  const filteredPromotions = promotions.filter((p) =>
+    p.name.toLowerCase().includes(promoSearch.toLowerCase())
+  );
+
+  const handlePromotionChange = (value: string) => {
+    if (value === "__other__") {
+      setValue("is_new_promo", true);
+      setValue("promotion_name", "");
+
+      setTimeout(() => {
+        const input = document.getElementById("promotion_name_input") as HTMLInputElement | null;
+        input?.focus();
+      }, 0);
+
+      return;
+    }
+
+    setValue("promotion_name", value, { shouldValidate: true });
+  };
+
+  const handleSelectOpenChange = (open: boolean) => {
+    if (open) {
+      setPromoSearch("");
+      setTimeout(() => promoSearchRef.current?.focus(), 0);
+    }
+  };
 
   // Année de fin auto-verrouillée depuis promotions.end_date
   const promoEndDate = (() => {
@@ -832,19 +889,35 @@ function Step2AlumniForm({
         {!isNewPromo ? (
           <Select
             value={watch("promotion_name")}
-            onValueChange={(v) => setValue("promotion_name", v, { shouldValidate: true })}
+            onOpenChange={handleSelectOpenChange}
+            onValueChange={handlePromotionChange}
           >
             <SelectTrigger className={inputClass} style={inputStyle}>
               <SelectValue placeholder="Sélectionnez votre promotion" />
             </SelectTrigger>
             <SelectContent>
-              {promotions.map((p) => (
+              <div className="px-3 py-2">
+                <input
+                  ref={promoSearchRef}
+                  value={promoSearch}
+                  onChange={(e) => setPromoSearch(e.target.value)}
+                  placeholder="Rechercher une promotion"
+                  className="w-full h-9 rounded-xl border border-transparent bg-input/50 px-3 py-1 text-sm text-white transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                  style={inputStyle}
+                />
+              </div>
+              {filteredPromotions.map((p) => (
                 <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
               ))}
+              {filteredPromotions.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">Aucune promotion trouvée</div>
+              )}
+              <SelectItem key="other" value="__other__">Autre</SelectItem>
             </SelectContent>
           </Select>
         ) : (
           <Input
+            id="promotion_name_input"
             {...register("promotion_name")}
             placeholder="Nom de la promotion"
             className={inputClass}
@@ -969,7 +1042,7 @@ function Step2AlumniForm({
 
       {/* Navigation */}
       <div className="flex gap-3 pt-2">
-        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}>
+        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}>
           <ArrowLeft size={14} /> Retour
         </Button>
         <Button type="submit" className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>
@@ -1005,6 +1078,19 @@ function Step2S4Form({
   const selectedActivities = watch("activities");
   const desiredFields = watch("desired_study_fields");
   const selectedPromoName = watch("promotion_name");
+  const [promoSearch, setPromoSearch] = useState("");
+  const promoSearchRef = useRef<HTMLInputElement | null>(null);
+
+  const filteredPromotions = promotions.filter((p) =>
+    p.name.toLowerCase().includes(promoSearch.toLowerCase())
+  );
+
+  const handleSelectOpenChange = (open: boolean) => {
+    if (open) {
+      setPromoSearch("");
+      setTimeout(() => promoSearchRef.current?.focus(), 0);
+    }
+  };
 
   const promoEndDate = (() => {
     if (!selectedPromoName) return null;
@@ -1017,9 +1103,26 @@ function Step2S4Form({
     <motion.form custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Promotion actuelle</Label>
-        <Select value={watch("promotion_name")} onValueChange={(v) => setValue("promotion_name", v, { shouldValidate: true })}>
+        <Select value={watch("promotion_name")} onOpenChange={handleSelectOpenChange} onValueChange={(v) => setValue("promotion_name", v, { shouldValidate: true })}>
           <SelectTrigger className={inputClass} style={inputStyle}><SelectValue placeholder="Sélectionnez" /></SelectTrigger>
-          <SelectContent>{promotions.map((p) => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent>
+          <SelectContent>
+            <div className="px-3 py-2">
+              <input
+                ref={promoSearchRef}
+                value={promoSearch}
+                onChange={(e) => setPromoSearch(e.target.value)}
+                placeholder="Rechercher une promotion"
+                className="w-full h-9 rounded-xl border border-transparent bg-input/50 px-3 py-1 text-sm text-white transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                style={inputStyle}
+              />
+            </div>
+            {filteredPromotions.map((p) => (
+              <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+            ))}
+            {filteredPromotions.length === 0 && (
+              <div className="px-3 py-2 text-xs text-muted-foreground">Aucune promotion trouvée</div>
+            )}
+          </SelectContent>
         </Select>
         {errors.promotion_name && <p className={errorClass} style={errorColor}>{errors.promotion_name.message}</p>}
       </div>
@@ -1067,7 +1170,7 @@ function Step2S4Form({
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
+        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
         <Button type="submit" className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>Continuer <ArrowRight size={16} /></Button>
       </div>
     </motion.form>
@@ -1153,7 +1256,7 @@ function Step2StudentForm({
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
+        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
         <Button type="submit" className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>Continuer <ArrowRight size={16} /></Button>
       </div>
     </motion.form>
@@ -1229,7 +1332,7 @@ function Step3Form({
       {errors.accept_terms && <p className={errorClass} style={errorColor}>{errors.accept_terms.message}</p>}
 
       <div className="flex gap-3 pt-2">
-        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }} disabled={isPending}>
+        <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }} disabled={isPending}>
           <ArrowLeft size={14} /> Retour
         </Button>
         <Button type="submit" disabled={isPending} className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>
