@@ -13,9 +13,14 @@ interface PostFeedProps {
   initialHasMore: boolean;
   tags: ForumTag[];
   excludeTagIds?: string[];
+  includeTagId?: string;
   currentUserId: string;
   isAdmin: boolean;
   memberCount: number;
+  emptyStateMessage?: string;
+  createLabel?: string;
+  promoId?: string;
+  canPinAll?: boolean;
 }
 
 export function PostFeed({
@@ -23,9 +28,14 @@ export function PostFeed({
   initialHasMore,
   tags,
   excludeTagIds = [],
+  includeTagId,
   currentUserId,
   isAdmin,
   memberCount,
+  emptyStateMessage,
+  createLabel = "Quoi de neuf ?",
+  promoId,
+  canPinAll,
 }: PostFeedProps) {
   const [posts, setPosts] = useState(initialPosts);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -57,12 +67,22 @@ export function PostFeed({
           tag:tag_id(id, name, color)
         `)
         .eq("is_deleted", false)
-        .is("promo_id", null)
-        .eq("is_pinned", false)
-        .lt("created_at", lastPost.created_at)
+        .eq("is_pinned", false);
+
+      if (promoId) {
+        q = q.eq("promo_id", promoId);
+      } else {
+        q = q.is("promo_id", null);
+      }
+
+      q = q.lt("created_at", lastPost.created_at)
         .order("created_at", { ascending: false })
         .limit(20);
-      if (excludeTagIds.length > 0) q = q.not("tag_id", "in", `(${excludeTagIds.join(",")})`);
+      if (includeTagId) {
+        q = q.eq("tag_id", includeTagId);
+      } else if (excludeTagIds.length > 0) {
+        q = q.not("tag_id", "in", `(${excludeTagIds.join(",")})`);
+      }
       const { data: newPosts } = await q;
 
       if (!newPosts || newPosts.length === 0) {
@@ -136,11 +156,11 @@ export function PostFeed({
         <div className="w-10 h-10 rounded-full bg-cma-bordeaux/10 flex items-center justify-center text-cma-bordeaux">
           <Plus size={18} />
         </div>
-        <span className="text-sm text-gray-400">Quoi de neuf ?</span>
+        <span className="text-sm text-gray-400">{createLabel}</span>
       </button>
 
       {/* Tag filter */}
-      {tags.length > 0 && (
+      {!includeTagId && tags.length > 0 && (
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           <button
             type="button"
@@ -183,6 +203,7 @@ export function PostFeed({
             post={post}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            canPin={canPinAll}
           />
         ))}
       </div>
@@ -193,7 +214,7 @@ export function PostFeed({
           <p className="text-lg font-semibold text-gray-700 mb-2">
             {tagFilter !== "all"
               ? "Aucun post avec ce tag"
-              : "Soyez la première à partager quelque chose !"}
+              : emptyStateMessage || "Soyez la première à partager quelque chose !"}
           </p>
           <p className="text-sm text-gray-400">
             {tagFilter !== "all"
@@ -226,6 +247,7 @@ export function PostFeed({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         userId={currentUserId}
+        promoId={promoId}
       />
     </>
   );

@@ -7,6 +7,7 @@ export const createPostSchema = z.object({
     .max(2000, "Maximum 2000 caractères"),
   tag_id: z.string().uuid("Tag requis"),
   image_url: z.string().url().nullable().optional(),
+  promo_id: z.string().uuid().nullable().optional(),
 });
 
 export type CreatePostData = z.infer<typeof createPostSchema>;

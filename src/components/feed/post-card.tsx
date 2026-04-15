@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare } from "lucide-react";
+import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare, Flag } from "lucide-react";
 import { UserAvatar } from "./user-avatar";
 import { TagBadge } from "./tag-badge";
 import { ReactionBar } from "./reaction-bar";
 import { EditPostDialog } from "./edit-post-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
+import { ReportDialog } from "@/components/moderation/report-dialog";
 import { renderContentWithMentions } from "@/lib/mentions";
 import { timeAgo } from "@/lib/time-ago";
 import { deleteOwnPostAction, pinPostAction } from "@/actions/forum";
@@ -18,12 +19,17 @@ interface PostCardProps {
   post: ForumPost;
   currentUserId: string;
   isAdmin: boolean;
+  canPin?: boolean;
 }
 
-export function PostCard({ post, currentUserId, isAdmin }: PostCardProps) {
+export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const isAuthor = post.author?.id === currentUserId;
+  // Le menu s'affiche pour tout le monde (signalement dispo pour non-auteurs non-admin)
+  // SAUF si le post n'a pas d'auteur visible (utilisatrice supprimée)
+  const canShowMenu = isAuthor || isAdmin || (!!post.author && !!currentUserId);
 
   return (
     <article className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
@@ -63,7 +69,7 @@ export function PostCard({ post, currentUserId, isAdmin }: PostCardProps) {
         </div>
 
         {/* Actions menu */}
-        {(isAuthor || isAdmin) && (
+        {canShowMenu && (
           <div className="relative">
             <button
               type="button"
@@ -87,13 +93,23 @@ export function PostCard({ post, currentUserId, isAdmin }: PostCardProps) {
                       <Pencil size={14} /> Modifier
                     </button>
                   )}
-                  {isAdmin && (
+                  {(isAdmin || canPin) && (
                     <button
                       type="button"
                       onClick={async () => { setShowMenu(false); await pinPostAction(post.id); }}
                       className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <Pin size={14} /> {post.is_pinned ? "Désépingler" : "Épingler"}
+                    </button>
+                  )}
+                  {/* Signaler : disponible pour non-auteur non-admin */}
+                  {!isAuthor && !isAdmin && post.author && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowMenu(false); setReportOpen(true); }}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Flag size={14} /> Signaler
                     </button>
                   )}
                   {(isAuthor || isAdmin) && (
@@ -114,6 +130,15 @@ export function PostCard({ post, currentUserId, isAdmin }: PostCardProps) {
             )}
           </div>
         )}
+
+        {/* Modal signalement */}
+        <ReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          targetType="post"
+          targetId={post.id}
+          targetLabel={post.author ? `Post de @${post.author.username}` : "Post"}
+        />
       </div>
 
       {/* Tag */}

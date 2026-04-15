@@ -15,11 +15,12 @@ interface CreatePostDialogProps {
   open: boolean;
   onClose: () => void;
   userId: string;
+  promoId?: string;
 }
 
-export function CreatePostDialog({ tags, open, onClose, userId }: CreatePostDialogProps) {
+export function CreatePostDialog({ tags, open, onClose, userId, promoId }: CreatePostDialogProps) {
   const [content, setContent] = useState("");
-  const [tagId, setTagId] = useState("");
+  const [tagId, setTagId] = useState(() => tags.length === 1 ? tags[0].id : "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function CreatePostDialog({ tags, open, onClose, userId }: CreatePostDial
         content: content.trim(),
         tag_id: tagId,
         image_url: imageUrl,
+        promo_id: promoId,
       });
 
       if (!result.success) {
@@ -73,7 +75,7 @@ export function CreatePostDialog({ tags, open, onClose, userId }: CreatePostDial
 
       // Reset and close
       setContent("");
-      setTagId("");
+      setTagId(tags.length === 1 ? tags[0].id : "");
       removeImage();
       onClose();
     });
@@ -123,19 +125,30 @@ export function CreatePostDialog({ tags, open, onClose, userId }: CreatePostDial
               )}
 
               {/* Tag selector */}
-              <select
-                value={tagId}
-                onChange={(e) => setTagId(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-cma-bordeaux"
-                disabled={isPending}
-              >
-                <option value="">Choisir un tag *</option>
-                {tags.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+              {tags.length === 1 ? (
+                <div className="flex items-center">
+                  <span 
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium"
+                    style={{ background: `${tags[0].color}15`, color: tags[0].color }}
+                  >
+                    {tags[0].name}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={tagId}
+                  onChange={(e) => setTagId(e.target.value)}
+                  className="w-full h-9 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-cma-bordeaux"
+                  disabled={isPending}
+                >
+                  <option value="">Choisir un tag *</option>
+                  {tags.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {/* Content */}
               <div className="relative">

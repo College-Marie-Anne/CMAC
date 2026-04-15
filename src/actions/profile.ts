@@ -9,9 +9,13 @@ import {
   addProfessionSchema,
   updateDesiredFieldsSchema,
   updateThemeSchema,
+  updateActivitiesSchema,
+  updateNotificationPrefsSchema,
   type AddEducationData,
   type AddProfessionData,
   type UpdateDesiredFieldsData,
+  type UpdateActivitiesData,
+  type UpdateNotificationPrefsData,
 } from "@/lib/validations/profile";
 import {
   deactivateAccountLimiter,
@@ -175,6 +179,69 @@ export async function updateDesiredFieldsAction(data: UpdateDesiredFieldsData): 
     const { error } = await supabase.rpc("replace_desired_study_fields", {
       p_fields: parsed.data.fields,
     });
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/profile/edit");
+    return { success: true };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ─── Activités parascolaires ─── */
+
+export async function updateActivitiesAction(data: UpdateActivitiesData): Promise<ProfileActionResult> {
+  try {
+    const { supabase, user } = await requireAuth();
+    const parsed = updateActivitiesSchema.safeParse(data);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+    // Pattern DELETE + INSERT bulk (pas d'RPC atomique comme desired_fields car
+    // pas de plafond strict côté DB). Risque de fenêtre "0 activités briefly"
+    // négligeable car les activités n'ont pas de side-effect (pas de notification,
+    // pas de vérification).
+    const { error: delErr } = await supabase
+      .from("profile_activities")
+      .delete()
+      .eq("profile_id", user.id);
+    if (delErr) return { success: false, error: delErr.message };
+
+    if (parsed.data.activity_ids.length > 0) {
+      const { error: insErr } = await supabase
+        .from("profile_activities")
+        .insert(
+          parsed.data.activity_ids.map((activity_id) => ({
+            profile_id: user.id,
+            activity_id,
+          }))
+        );
+      if (insErr) return { success: false, error: insErr.message };
+    }
+
+    revalidatePath("/profile/edit");
+    return { success: true };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ─── Préférences de notification ─── */
+
+export async function updateNotificationPrefsAction(
+  data: UpdateNotificationPrefsData
+): Promise<ProfileActionResult> {
+  try {
+    const { supabase, user } = await requireAuth();
+    const parsed = updateNotificationPrefsSchema.safeParse(data);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+    // La row notification_preferences est créée automatiquement par le trigger
+    // trg_create_notification_preferences (migration 003) à la création du profil.
+    // On UPDATE avec le filtre profile_id (la RLS vérifie auth.uid() = profile_id).
+    const { error } = await supabase
+      .from("notification_preferences")
+      .update(parsed.data)
+      .eq("profile_id", user.id);
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/profile/edit");

@@ -199,10 +199,10 @@ export default async function FeedPage({
           <nav className="space-y-1 flex-1" aria-label="Navigation principale">
             {[
               { href: "/feed", icon: Users, label: "Fil d'actualité", active: true, implemented: true },
-              { href: "/directory", icon: Search, label: "Annuaire", implemented: false },
-              { href: "/promo", icon: GraduationCap, label: "Coin Promo", implemented: false },
-              { href: "/mentorship", icon: Handshake, label: "Mentorat", implemented: false },
-              { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: false },
+              { href: "/directory", icon: Search, label: "Annuaire", implemented: true },
+              { href: "/promo", icon: GraduationCap, label: "Coin Promo", implemented: true },
+              { href: "/mentorship", icon: Handshake, label: "Mentorat", implemented: true },
+              { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: true },
               { href: "/messages", icon: MessageSquare, label: "Messages", implemented: !isAdmin, badge: unreadDmCount > 0 ? unreadDmCount : undefined },
               { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: false },
             ].map((item) => {
@@ -247,8 +247,12 @@ export default async function FeedPage({
               </a>
             )}
             <Link href="/profile/edit" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
-              <Settings size={18} />
+              <Users size={18} />
               Mon profil
+            </Link>
+            <Link href="/settings" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+              <Settings size={18} />
+              Paramètres
             </Link>
             <LogoutButton variant="feed" />
           </div>
@@ -274,15 +278,10 @@ export default async function FeedPage({
           <Users size={20} />
           <span className="text-[10px] font-medium">Feed</span>
         </Link>
-        <div
-          className="flex flex-col items-center gap-0.5 text-gray-300 cursor-not-allowed select-none relative"
-          title="Bientôt disponible"
-          aria-disabled="true"
-        >
+        <Link href="/directory" className="flex flex-col items-center gap-0.5 text-gray-500 hover:text-cma-bordeaux transition-colors">
           <Search size={20} />
           <span className="text-[10px]">Annuaire</span>
-          <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-cma-or" aria-hidden="true" />
-        </div>
+        </Link>
         <MobileCreateButton
           tags={(tags ?? []).map((t) => ({ ...t, is_system: t.is_system ?? false }))}
           userId={user.id}

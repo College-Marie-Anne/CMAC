@@ -1,14 +1,14 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { BioEditor } from "@/components/profile/bio-editor";
 import { EducationSection } from "@/components/profile/education-section";
 import { ProfessionsSection } from "@/components/profile/professions-section";
+import { ActivitiesSection } from "@/components/profile/activities-section";
+import { DesiredFieldsSection } from "@/components/profile/desired-fields-section";
 import { InvitationGenerator } from "@/components/profile/invitation-generator";
-import { DangerZone } from "@/components/profile/danger-zone";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ProfileBadges } from "@/components/profile/profile-badges";
 
 export default async function ProfileEditPage() {
@@ -21,7 +21,7 @@ export default async function ProfileEditPage() {
     .select(`
       id, username, first_name, last_name, avatar_url, bio, role, status,
       class, filiere, promo_id, promo_start_date, enrollment_date,
-      nationality, country, is_super_admin, theme_preference
+      nationality, country, is_super_admin
     `)
     .eq("id", user.id)
     .single();
@@ -31,25 +31,46 @@ export default async function ProfileEditPage() {
     redirect("/login");
   }
 
+  const isStudent = profile.role === "student" || profile.role === "s4";
+
   const [
     { data: education },
     { data: professions },
     { data: promo },
+    { data: allActivities },
+    { data: profileActivities },
+    { data: desiredFields },
   ] = await Promise.all([
     supabase.from("user_education").select("id, institution_type, institution_name, study_field, degree_level, start_year, end_year").eq("profile_id", user.id).order("start_year", { ascending: false }),
     supabase.from("user_professions").select("id, title, company, is_current").eq("profile_id", user.id).order("is_current", { ascending: false }),
     profile.promo_id ? supabase.from("promotions").select("name").eq("id", profile.promo_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("activities").select("id, name").order("name"),
+    supabase.from("profile_activities").select("activity_id").eq("profile_id", user.id),
+    isStudent
+      ? supabase.from("desired_study_fields").select("field_name").eq("profile_id", user.id).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as { field_name: string }[] }),
   ]);
+
+  const selectedActivityIds = (profileActivities ?? []).map((r) => r.activity_id);
+  const desiredFieldNames = (desiredFields ?? []).map((r) => r.field_name);
 
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950">
-      <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 h-14 flex items-center justify-between">
+      <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 h-14 flex items-center justify-between gap-2">
         <Link href="/feed" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
           <ArrowLeft size={16} /> Retour
         </Link>
-        <Link href={`/profile/${profile.username}`} className="text-sm text-cma-bordeaux font-medium">
-          Voir mon profil
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          >
+            <Settings size={14} /> Paramètres
+          </Link>
+          <Link href={`/profile/${profile.username}`} className="text-sm text-cma-bordeaux font-medium">
+            Voir mon profil
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
@@ -89,15 +110,26 @@ export default async function ProfileEditPage() {
           <EducationSection education={education ?? []} />
         </div>
 
-        {/* Professions */}
-        <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
-          <ProfessionsSection professions={professions ?? []} />
-        </div>
+        {/* Professions (alumni & S4 only — S1-S3 n'ont pas encore de métier) */}
+        {(profile.role === "alumni" || profile.role === "s4") && (
+          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+            <ProfessionsSection professions={professions ?? []} />
+          </div>
+        )}
 
-        {/* Settings: Theme */}
+        {/* Domaines d'études désirés (students S1-S4) */}
+        {isStudent && (
+          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+            <DesiredFieldsSection initialFields={desiredFieldNames} />
+          </div>
+        )}
+
+        {/* Activités parascolaires */}
         <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Apparence</h3>
-          <ThemeToggle initialTheme={profile.theme_preference} />
+          <ActivitiesSection
+            allActivities={allActivities ?? []}
+            selectedIds={selectedActivityIds}
+          />
         </div>
 
         {/* Invitation links (alumni only) */}
@@ -116,8 +148,25 @@ export default async function ProfileEditPage() {
           </p>
         </div>
 
-        {/* Danger zone */}
-        <DangerZone />
+        {/* Lien vers les paramètres (apparence, mot de passe, notifications, désactivation) */}
+        <Link
+          href="/settings"
+          className="block rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5 hover:border-cma-bordeaux/30 transition-colors group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Settings size={16} /> Paramètres du compte
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Apparence, mot de passe, notifications, désactivation
+              </p>
+            </div>
+            <span className="text-cma-bordeaux text-sm group-hover:translate-x-0.5 transition-transform">
+              →
+            </span>
+          </div>
+        </Link>
       </main>
     </div>
   );

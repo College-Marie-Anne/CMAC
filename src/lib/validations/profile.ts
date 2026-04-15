@@ -38,3 +38,29 @@ export const updateThemeSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
 });
 export type UpdateThemeData = z.infer<typeof updateThemeSchema>;
+
+// ─── Activités parascolaires ───
+// Un tableau d'UUIDs d'activités (table `activities`).
+// Max 20 (filet de sécurité — en pratique l'admin définit ~10 activités).
+export const updateActivitiesSchema = z.object({
+  activity_ids: z.array(z.string().uuid()).max(20, "Maximum 20 activités"),
+});
+export type UpdateActivitiesData = z.infer<typeof updateActivitiesSchema>;
+
+// ─── Préférences de notification ───
+// Tous les types de notification que l'utilisatrice peut désactiver.
+// Les notifications admin/account_*/promo_rejected/invitation_used/post_pinned/
+// support_reply sont TOUJOURS envoyées (spec §488) et n'apparaissent pas ici.
+export const updateNotificationPrefsSchema = z.object({
+  dm: z.boolean(),
+  forum_reply: z.boolean(),
+  forum_comment_reply: z.boolean(),
+  reaction: z.boolean(),
+  mention: z.boolean(),
+  mentorship: z.boolean(),
+  mentorship_completed: z.boolean(),
+  election: z.boolean(),
+  new_opportunity: z.boolean(),
+  push_enabled: z.boolean(),
+});
+export type UpdateNotificationPrefsData = z.infer<typeof updateNotificationPrefsSchema>;

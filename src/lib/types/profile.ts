@@ -57,3 +57,16 @@ export type ProfileFull = ProfilePublic & {
   post_count: number;
   comment_count: number;
 };
+
+export type NotificationPrefs = {
+  dm: boolean;
+  forum_reply: boolean;
+  forum_comment_reply: boolean;
+  reaction: boolean;
+  mention: boolean;
+  mentorship: boolean;
+  mentorship_completed: boolean;
+  election: boolean;
+  new_opportunity: boolean;
+  push_enabled: boolean;
+};

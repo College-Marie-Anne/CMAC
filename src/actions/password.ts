@@ -7,8 +7,10 @@ import { headers } from "next/headers";
 import {
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   type ForgotPasswordData,
   type ResetPasswordData,
+  type ChangePasswordData,
 } from "@/lib/validations/password";
 import {
   resetPasswordLimiter,
@@ -122,4 +124,72 @@ export async function resetPasswordAction(
   // Succès — redirection vers /feed (session déjà active)
   revalidatePath("/feed");
   redirect("/feed");
+}
+
+/**
+ * Changement de mot de passe pour une utilisatrice connectée (depuis /settings).
+ * Vérifie d'abord l'ancien mot de passe (re-auth via signInWithPassword) avant
+ * d'autoriser la mise à jour. Spec §161.
+ */
+export async function changePasswordAction(
+  data: ChangePasswordData
+): Promise<PasswordResult> {
+  const parsed = changePasswordSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Session expirée. Reconnectez-vous." };
+  }
+
+  // Rate limit par user (3/h pour limiter les tentatives brute-force sur l'ancien mdp)
+  const { allowed, resetAt } = await checkRateLimit(changePasswordLimiter, user.id);
+  if (!allowed) {
+    const mins = Math.ceil((resetAt - Date.now()) / 60000);
+    return {
+      success: false,
+      error: `Trop de tentatives. Réessayez dans ${mins} min.`,
+    };
+  }
+
+  if (!user.email) {
+    return { success: false, error: "Email du compte introuvable. Contactez le support." };
+  }
+
+  // ─── Vérification de l'ancien mot de passe ───
+  // signInWithPassword avec l'email courant + l'ancien mot de passe.
+  // Si l'ancien est bon → pas d'erreur, la session reste valide.
+  // Si mauvais → auth error → on refuse le changement.
+  const { error: verifyErr } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.old_password,
+  });
+
+  if (verifyErr) {
+    return { success: false, error: "L'ancien mot de passe est incorrect." };
+  }
+
+  // ─── Mise à jour du mot de passe ───
+  const { error: updateErr } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+
+  if (updateErr) {
+    if (updateErr.message.includes("same_password")) {
+      return {
+        success: false,
+        error: "Le nouveau mot de passe doit être différent de l'ancien.",
+      };
+    }
+    return { success: false, error: "Erreur lors de la mise à jour. Réessayez." };
+  }
+
+  revalidatePath("/settings");
+  return { success: true };
 }

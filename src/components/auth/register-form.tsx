@@ -209,7 +209,20 @@ function TagInput({
 
 // ─── Composant principal ───
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  /** Token d'invitation — si fourni, flow /register/invite/[token] : compte pré-approuvé */
+  invitationToken?: string;
+  /** Prénom+Nom de l'alumni qui invite, à afficher dans le bandeau */
+  inviterName?: string | null;
+  /** Username de l'alumni qui invite, pour lien optionnel */
+  inviterUsername?: string | null;
+}
+
+export function RegisterForm({
+  invitationToken,
+  inviterName,
+  inviterUsername,
+}: RegisterFormProps = {}) {
   const [currentStep, setCurrentStep] = useState<WizardStep>("step1");
   const [direction, setDirection] = useState(0);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -294,7 +307,7 @@ export function RegisterForm() {
 
     setServerError(null);
     startTransition(async () => {
-      const result = await registerAction(formData);
+      const result = await registerAction(formData, invitationToken);
       if (!result.success && result.error) {
         setServerError(result.error);
       }
@@ -329,6 +342,29 @@ export function RegisterForm() {
             priority
           />
         </div>
+
+        {/* Bandeau d'invitation (uniquement pour le flow /register/invite/[token]) */}
+        {invitationToken && inviterName && (
+          <motion.div
+            className="mb-5 rounded-xl px-4 py-3 flex items-start gap-2.5"
+            style={{
+              background: "rgba(0,107,63,0.15)",
+              border: "1px solid rgba(0,107,63,0.3)",
+            }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <CheckCircle2 size={16} className="shrink-0 mt-0.5" style={{ color: "#8fd6b4" }} />
+            <div className="text-xs leading-relaxed" style={{ color: "#8fd6b4" }}>
+              Invitation de <span className="font-semibold text-white">{inviterName}</span>
+              {inviterUsername && (
+                <span style={{ color: "rgba(245,222,179,0.5)" }}> (@{inviterUsername})</span>
+              )}
+              . Ton compte sera activé immédiatement après inscription — pas d&apos;attente d&apos;approbation admin.
+            </div>
+          </motion.div>
+        )}
 
         {/* Barre de progression */}
         <div className="flex items-center justify-center gap-2 mb-6">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/form-resolver";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +12,7 @@ import {
   EyeOff,
   Loader2,
   AlertCircle,
+  CheckCircle2,
   CalendarDays,
   KeyRound,
 } from "lucide-react";
@@ -23,11 +25,22 @@ import { loginSchema, type LoginFormData } from "@/lib/validations/auth";
 import { loginAction } from "@/actions/auth";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [needsDob, setNeedsDob] = useState(false);
   const [needsOtp, setNeedsOtp] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Message de succès post-inscription via lien d'invitation (?invited=1)
+  useEffect(() => {
+    if (searchParams.get("invited") === "1") {
+      setSuccessMsg(
+        "Inscription réussie ! Ton compte est activé. Connecte-toi avec tes identifiants."
+      );
+    }
+  }, [searchParams]);
 
   const {
     register,
@@ -172,6 +185,27 @@ export function LoginForm() {
         >
           Connectez-vous pour accéder à CMAC
         </motion.p>
+
+        {/* Message de succès (post-inscription via invitation) */}
+        <AnimatePresence>
+          {successMsg && !serverError && (
+            <motion.div
+              className="w-full mb-4 flex items-start gap-2.5 rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: "rgba(0,107,63,0.15)",
+                border: "1px solid rgba(0,107,63,0.3)",
+                color: "#8fd6b4",
+              }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+              <span>{successMsg}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Message d'erreur serveur */}
         <AnimatePresence>

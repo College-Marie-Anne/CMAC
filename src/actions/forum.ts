@@ -76,6 +76,7 @@ export async function createPostAction(
         content: parsed.data.content,
         tag_id: parsed.data.tag_id,
         image_url: parsed.data.image_url ?? null,
+        promo_id: parsed.data.promo_id ?? null,
       })
       .select("id")
       .single();
@@ -143,18 +144,33 @@ export async function pinPostAction(
   try {
     const { supabase, profile } = await requireAuth();
 
-    // Only admin can pin
-    if (profile.role !== "admin")
-      return { success: false, error: "Seuls les admins peuvent épingler" };
-
-    // Toggle pin state
     const { data: post, error: fetchErr } = await supabase
       .from("forum_posts")
-      .select("is_pinned")
+      .select("is_pinned, promo_id")
       .eq("id", postId)
       .single();
 
     if (fetchErr || !post) return { success: false, error: "Post introuvable" };
+
+    const isAdmin = profile.role === "admin";
+    let isLeader = false;
+
+    if (!isAdmin && post.promo_id) {
+       // Check if user is leader of this promo
+       const { data: promo } = await supabase
+         .from("promotions")
+         .select("leader_id")
+         .eq("id", post.promo_id)
+         .single();
+         
+       if (promo?.leader_id === profile.id) {
+         isLeader = true;
+       }
+    }
+
+    if (!isAdmin && !isLeader) {
+      return { success: false, error: "Non autorisé à épingler ce post" };
+    }
 
     const { error } = await supabase
       .from("forum_posts")

@@ -62,7 +62,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // Route auth avec session active → redirection vers feed
-  const isAuthRoute = authRoutes.some((route) => pathname === route);
+  // Match exact pour /login, /register, etc. + prefix pour /register/invite/*
+  const isAuthRoute =
+    authRoutes.some((route) => pathname === route) ||
+    pathname.startsWith("/register/");
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/feed";

@@ -46,7 +46,16 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/register)",
       "Bash(netstat -ano)",
       "Bash(tasklist //FI \"PID eq 10348\")",
-      "Bash(taskkill //F //PID 10348)"
+      "Bash(taskkill //F //PID 10348)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/profile/edit)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/register/invite/00000000-0000-0000-0000-000000000000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/settings)",
+      "Bash(curl -s -o /dev/null -w \"/settings/blocked %{http_code}\\\\n\" http://localhost:3000/settings/blocked)",
+      "Bash(curl -s -o /dev/null -w \"/profile/anonyme %{http_code}\\\\n\" http://localhost:3000/profile/anonyme)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/settings/blocked\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/settings/blocked)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/profile/anonyme)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/feed)"
     ]
   }
 }

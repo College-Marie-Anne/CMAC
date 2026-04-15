@@ -81,12 +81,20 @@ export function MobileProfileMenu({ initials, username, themePreference }: Mobil
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
+                    <User size={18} />
+                    Modifier mon profil
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
                     <Settings size={18} />
                     Paramètres
                   </Link>
                 </div>
 
-                {/* Theme */}
+                {/* Theme — raccourci. Gestion complète dans /settings */}
                 <div>
                   <p className="text-xs text-gray-400 mb-2">Apparence</p>
                   <ThemeToggle initialTheme={themePreference} />

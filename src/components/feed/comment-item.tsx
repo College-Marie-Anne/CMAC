@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MoreHorizontal, Pencil, Trash2, Reply } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Reply, Flag } from "lucide-react";
 import { UserAvatar } from "./user-avatar";
 import { ReactionBar } from "./reaction-bar";
 import { CommentForm } from "./comment-form";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
+import { ReportDialog } from "@/components/moderation/report-dialog";
 import { renderContentWithMentions } from "@/lib/mentions";
 import { timeAgo } from "@/lib/time-ago";
 import { editCommentAction, deleteOwnCommentAction } from "@/actions/forum";
@@ -33,7 +34,9 @@ export function CommentItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [showReply, setShowReply] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const isAuthor = comment.author?.id === currentUserId;
+  const canShowMenu = isAuthor || isAdmin || (!!comment.author && !!currentUserId);
 
   const handleSaveEdit = async () => {
     if (!editContent.trim()) return;
@@ -133,7 +136,7 @@ export function CommentItem({
           </div>
 
           {/* Menu */}
-          {(isAuthor || isAdmin) && !isEditing && (
+          {canShowMenu && !isEditing && (
             <div className="relative">
               <button
                 type="button"
@@ -162,26 +165,50 @@ export function CommentItem({
                         <Pencil size={12} /> Modifier
                       </button>
                     )}
-                    <DeleteConfirmDialog
-                      onConfirm={async () => {
-                        await deleteOwnCommentAction(comment.id);
-                      }}
-                      title="Supprimer ce commentaire ?"
-                      trigger={
-                        <button
-                          type="button"
-                          onClick={() => setShowMenu(false)}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50"
-                        >
-                          <Trash2 size={12} /> Supprimer
-                        </button>
-                      }
-                    />
+                    {/* Signaler — non-auteur non-admin */}
+                    {!isAuthor && !isAdmin && comment.author && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMenu(false);
+                          setReportOpen(true);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        <Flag size={12} /> Signaler
+                      </button>
+                    )}
+                    {(isAuthor || isAdmin) && (
+                      <DeleteConfirmDialog
+                        onConfirm={async () => {
+                          await deleteOwnCommentAction(comment.id);
+                        }}
+                        title="Supprimer ce commentaire ?"
+                        trigger={
+                          <button
+                            type="button"
+                            onClick={() => setShowMenu(false)}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50"
+                          >
+                            <Trash2 size={12} /> Supprimer
+                          </button>
+                        }
+                      />
+                    )}
                   </div>
                 </>
               )}
             </div>
           )}
+
+          {/* Modal signalement */}
+          <ReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            targetType="comment"
+            targetId={comment.id}
+            targetLabel={comment.author ? `Commentaire de @${comment.author.username}` : "Commentaire"}
+          />
         </div>
 
         {/* Reply form (inline) */}

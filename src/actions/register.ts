@@ -15,7 +15,8 @@ export type RegisterResult = {
 };
 
 export async function registerAction(
-  data: RegisterFormData
+  data: RegisterFormData,
+  invitationToken?: string
 ): Promise<RegisterResult> {
   // Rate limit by IP — 3 per hour
   const h = await headers();
@@ -32,6 +33,45 @@ export async function registerAction(
   const supabase = await createClient();
   const { step1, step2_type, step2_alumni, step2_s4, step2_student, step3 } =
     data;
+
+  // ─── 0. Validation token d'invitation (si fourni) ───
+  //
+  // Avec un token valide, le compte est pré-approuvé → status: 'active'
+  // au lieu de 'pending' (spec §134). La validation est re-faite ici
+  // côté serveur (la page d'invitation la fait aussi, mais un attaquant
+  // pourrait poster directement sans passer par la page).
+
+  let inviteValid = false;
+  if (invitationToken) {
+    // Validation UUID format avant RPC
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(invitationToken)) {
+      return { success: false, error: "Lien d'invitation invalide" };
+    }
+
+    const { data: validation, error: valErr } = await supabase.rpc(
+      "validate_invitation_token",
+      { p_token: invitationToken }
+    );
+    if (valErr) {
+      console.error("[register] validate_invitation_token failed", valErr);
+      return { success: false, error: "Erreur de validation du lien d'invitation" };
+    }
+    const result = Array.isArray(validation) ? validation[0] : validation;
+    if (!result?.valid) {
+      const reasonMsg: Record<string, string> = {
+        not_found: "Lien d'invitation introuvable",
+        revoked: "Ce lien d'invitation a été révoqué",
+        used: "Ce lien d'invitation a déjà été utilisé",
+        expired: "Ce lien d'invitation a expiré",
+      };
+      return {
+        success: false,
+        error: reasonMsg[result?.reason ?? ""] ?? "Lien d'invitation invalide",
+      };
+    }
+    inviteValid = true;
+  }
 
   // ─── 1. Vérifier unicité username ───
 
@@ -162,7 +202,8 @@ export async function registerAction(
           ? step2_s4?.promo_start_date
           : null,
     expected_end_date: expectedEndDate,
-    status: "pending",
+    // Invitation valide → pré-approuvé 'active', sinon 'pending' (spec §134)
+    status: inviteValid ? "active" : "pending",
     is_profile_complete: true,
     accepted_terms_at: new Date().toISOString(),
     terms_version: "1.0",
@@ -270,20 +311,46 @@ export async function registerAction(
     // Le flag registration_incomplete est visible dans /admin/users/[id].
   }
 
-  // ─── 8. Email de bienvenue (non bloquant) ───
+  // ─── 8. Consommer le token d'invitation (si flow d'invitation) ───
+  //
+  // Atomique : la RPC verrouille la row, re-vérifie la validité, marque
+  // is_used + used_by, et crée la notification 'invitation_used' pour
+  // l'inviteur. Ne bloque PAS l'inscription si elle échoue (l'utilisatrice
+  // est déjà créée avec status 'active') — on log et on continue.
 
-  // Fire-and-forget : l'email est envoyé en arrière-plan.
-  // Si l'envoi échoue, l'inscription reste valide.
+  if (inviteValid && invitationToken) {
+    const { data: consumed, error: consumeErr } = await supabase.rpc(
+      "consume_invitation_token",
+      { p_token: invitationToken, p_user_id: userId }
+    );
+    if (consumeErr || consumed === false) {
+      console.error(
+        `[register] consume_invitation_token failed for ${userId}:`,
+        consumeErr ?? "returned false (token race/invalid)"
+      );
+      // On n'échoue pas l'inscription — admin peut réparer manuellement.
+    }
+  }
+
+  // ─── 9. Email de bienvenue (non bloquant) ───
+
   sendWelcomeEmail({
     to: step3.email,
     firstName: step1.first_name,
   });
 
-  // ─── 9. Déconnexion (le compte est pending) ───
+  // ─── 10. Déconnexion (même pour les comptes invités — confirmation email requise) ───
 
   await supabase.auth.signOut();
 
-  // ─── 10. Redirection vers la page d'attente ───
+  // ─── 11. Redirection selon le flow ───
+
+  if (inviteValid) {
+    // Compte déjà 'active' — l'utilisatrice peut se connecter immédiatement
+    // (après vérification email si Supabase Auth l'exige)
+    revalidatePath("/admin/invitations");
+    redirect("/login?invited=1");
+  }
 
   revalidatePath("/admin/approvals");
   redirect("/pending");

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, MapPin, Globe, Calendar, MessageSquare, FileText } from "lucide-react";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { ProfileBadges } from "@/components/profile/profile-badges";
+import { ProfileModerationActions } from "@/components/moderation/profile-moderation-actions";
 import { timeAgo } from "@/lib/time-ago";
 import type { ProfileFull } from "@/lib/types/profile";
 
@@ -43,6 +44,8 @@ export default async function ProfilePage({
     { data: promo },
     { count: postCount },
     { count: commentCount },
+    { data: blockRow },
+    { data: viewerProfile },
   ] = await Promise.all([
     supabase.from("user_education").select("id, institution_type, institution_name, study_field, degree_level, start_year, end_year").eq("profile_id", profile.id).order("start_year", { ascending: false }),
     supabase.from("user_professions").select("id, title, company, is_current").eq("profile_id", profile.id).order("is_current", { ascending: false }),
@@ -51,7 +54,21 @@ export default async function ProfilePage({
     profile.promo_id ? supabase.from("promotions").select("name").eq("id", profile.promo_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("forum_posts").select("id", { count: "exact", head: true }).eq("author_id", profile.id).eq("is_deleted", false),
     supabase.from("forum_comments").select("id", { count: "exact", head: true }).eq("author_id", profile.id).eq("is_deleted", false),
+    isOwnProfile
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("blocked_users")
+          .select("blocker_id")
+          .eq("blocker_id", user.id)
+          .eq("blocked_id", profile.id)
+          .maybeSingle(),
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
   ]);
+
+  const isAlreadyBlocked = !!blockRow;
+  // Les admins ne peuvent pas bloquer/signaler depuis l'UI utilisatrice
+  // (ils ont le dashboard /admin/moderation pour ça)
+  const viewerIsAdmin = viewerProfile?.role === "admin";
 
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950">
@@ -59,11 +76,20 @@ export default async function ProfilePage({
         <Link href="/feed" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
           <ArrowLeft size={16} /> Retour
         </Link>
-        {isOwnProfile && (
-          <Link href="/profile/edit" className="ml-auto text-sm text-cma-bordeaux font-medium">
-            Modifier
-          </Link>
-        )}
+        <div className="ml-auto">
+          {isOwnProfile ? (
+            <Link href="/profile/edit" className="text-sm text-cma-bordeaux font-medium">
+              Modifier
+            </Link>
+          ) : !viewerIsAdmin ? (
+            <ProfileModerationActions
+              targetUserId={profile.id}
+              targetUsername={profile.username}
+              targetFullName={`${profile.first_name} ${profile.last_name}`}
+              isBlocked={isAlreadyBlocked}
+            />
+          ) : null}
+        </div>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
