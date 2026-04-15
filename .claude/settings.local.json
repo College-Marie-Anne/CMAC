@@ -34,7 +34,19 @@
       "Bash(grep -E \"\\\\`/[a-z]\" '/c/Users/Admin/.claude/projects/C--Projets-CMAC/memory/project_cma_connect.md')",
       "Bash([ ! -f \"/c/Projets/CMAC/src/app/$page/page.tsx\" ])",
       "Bash(grep \"CREATE INDEX\" /c/Projets/CMAC/supabase/migrations/*.sql)",
-      "Bash(npx shadcn@latest add textarea -y)"
+      "Bash(npx shadcn@latest add textarea -y)",
+      "Bash(wc -l C:/Projets/CMAC/supabase/migrations/*.sql)",
+      "Bash(wc -l C:/Projets/CMAC/src/actions/*.ts)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\\\\n\" http://localhost:3000/feed)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\\\\n\" http://localhost:3000/profile/edit)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin/audit)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin/moderation)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin/promotions)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/register)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist //FI \"PID eq 10348\")",
+      "Bash(taskkill //F //PID 10348)"
     ]
   }
 }

@@ -163,20 +163,19 @@ export async function deleteProfessionAction(profId: string): Promise<ProfileAct
 
 export async function updateDesiredFieldsAction(data: UpdateDesiredFieldsData): Promise<ProfileActionResult> {
   try {
-    const { supabase, user } = await requireAuth();
+    const { supabase } = await requireAuth();
     const parsed = updateDesiredFieldsSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-    // Delete existing
-    await supabase.from("desired_study_fields").delete().eq("profile_id", user.id);
-
-    // Insert new (max 3 enforced by schema)
-    if (parsed.data.fields.length > 0) {
-      const { error } = await supabase.from("desired_study_fields").insert(
-        parsed.data.fields.map((f) => ({ profile_id: user.id, field_name: f }))
-      );
-      if (error) return { success: false, error: error.message };
-    }
+    // Atomic DELETE + INSERT via RPC — enforces max 3 server-side even if
+    // a client bypasses Zod. Also prevents the "0 domains briefly" window
+    // caused by splitting into two PostgREST requests.
+    // Defense in depth : trigger trg_enforce_desired_study_fields_limit
+    // (migration 018) blocks any direct INSERT beyond 3 at DB level.
+    const { error } = await supabase.rpc("replace_desired_study_fields", {
+      p_fields: parsed.data.fields,
+    });
+    if (error) return { success: false, error: error.message };
 
     revalidatePath("/profile/edit");
     return { success: true };

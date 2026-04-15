@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import type { RegisterFormData } from "@/lib/validations/register";
 import { registerLimiter, checkRateLimit, sanitizeIp } from "@/lib/rate-limit";
+import { sendWelcomeEmail } from "@/lib/emails/welcome";
 
 export type RegisterResult = {
   success: boolean;
@@ -269,11 +270,20 @@ export async function registerAction(
     // Le flag registration_incomplete est visible dans /admin/users/[id].
   }
 
-  // ─── 8. Déconnexion (le compte est pending) ───
+  // ─── 8. Email de bienvenue (non bloquant) ───
+
+  // Fire-and-forget : l'email est envoyé en arrière-plan.
+  // Si l'envoi échoue, l'inscription reste valide.
+  sendWelcomeEmail({
+    to: step3.email,
+    firstName: step1.first_name,
+  });
+
+  // ─── 9. Déconnexion (le compte est pending) ───
 
   await supabase.auth.signOut();
 
-  // ─── 9. Redirection vers la page d'attente ───
+  // ─── 10. Redirection vers la page d'attente ───
 
   revalidatePath("/admin/approvals");
   redirect("/pending");

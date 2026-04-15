@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { YearSelect } from "@/components/ui/year-select";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   GraduationCap,
   Plus,
   CheckCircle2,
@@ -19,6 +26,12 @@ import {
   Trash2,
   Image as ImageIcon,
   Loader2,
+  Search,
+  X,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
@@ -38,6 +51,15 @@ type PromoWithCount = Promotion & {
   memberCount: number;
   leaderName: string | null;
 };
+
+type SortOption =
+  | "recent"
+  | "name_asc"
+  | "name_desc"
+  | "start_asc"
+  | "start_desc"
+  | "end_asc"
+  | "end_desc";
 
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<PromoWithCount[]>([]);
@@ -62,6 +84,15 @@ export default function PromotionsPage() {
 
   // Confirmation rejet
   const [rejectConfirm, setRejectConfirm] = useState<string | null>(null);
+
+  // Recherche et tri
+  const [searchQuery, setSearchQuery] = useState("");
+  const [startYearFrom, setStartYearFrom] = useState<number | null>(null);
+  const [startYearTo, setStartYearTo] = useState<number | null>(null);
+  const [endYearFrom, setEndYearFrom] = useState<number | null>(null);
+  const [endYearTo, setEndYearTo] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("recent");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const supabase = createClient();
 
@@ -235,9 +266,76 @@ export default function PromotionsPage() {
     fetchPromos();
   };
 
-  const pendingPromos = promotions.filter((p) => p.status === "pending");
-  const activePromos = promotions.filter((p) => p.status === "active");
-  const rejectedPromos = promotions.filter((p) => p.status === "rejected");
+  // ─── Recherche + tri ───
+  // Fonction pure : prend un sous-ensemble (pending/active/rejected) et applique
+  // les filtres (nom, plages d'années) puis le tri sélectionné.
+  const filterAndSort = (list: PromoWithCount[]): PromoWithCount[] => {
+    let result = list;
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) result = result.filter((p) => p.name.toLowerCase().includes(q));
+
+    if (startYearFrom !== null) result = result.filter((p) => p.start_date >= startYearFrom);
+    if (startYearTo !== null) result = result.filter((p) => p.start_date <= startYearTo);
+    if (endYearFrom !== null) result = result.filter((p) => p.end_date >= endYearFrom);
+    if (endYearTo !== null) result = result.filter((p) => p.end_date <= endYearTo);
+
+    const sorted = [...result];
+    switch (sortBy) {
+      case "name_asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+        break;
+      case "name_desc":
+        sorted.sort((a, b) => b.name.localeCompare(a.name, "fr"));
+        break;
+      case "start_asc":
+        sorted.sort((a, b) => a.start_date - b.start_date);
+        break;
+      case "start_desc":
+        sorted.sort((a, b) => b.start_date - a.start_date);
+        break;
+      case "end_asc":
+        sorted.sort((a, b) => a.end_date - b.end_date);
+        break;
+      case "end_desc":
+        sorted.sort((a, b) => b.end_date - a.end_date);
+        break;
+      // "recent" : conserve l'ordre DB (created_at DESC)
+    }
+    return sorted;
+  };
+
+  const pendingPromos = filterAndSort(promotions.filter((p) => p.status === "pending"));
+  const activePromos = filterAndSort(promotions.filter((p) => p.status === "active"));
+  const rejectedPromos = filterAndSort(promotions.filter((p) => p.status === "rejected"));
+
+  const totalActive = promotions.filter((p) => p.status === "active").length;
+  const totalPending = promotions.filter((p) => p.status === "pending").length;
+  const totalRejected = promotions.filter((p) => p.status === "rejected").length;
+  const totalAll = totalActive + totalPending + totalRejected;
+  const filteredTotal = pendingPromos.length + activePromos.length + rejectedPromos.length;
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    startYearFrom !== null ||
+    startYearTo !== null ||
+    endYearFrom !== null ||
+    endYearTo !== null;
+
+  const hasDateFilters =
+    startYearFrom !== null ||
+    startYearTo !== null ||
+    endYearFrom !== null ||
+    endYearTo !== null;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStartYearFrom(null);
+    setStartYearTo(null);
+    setEndYearFrom(null);
+    setEndYearTo(null);
+    setSortBy("recent");
+  };
 
   // Calculer jours restants avant expiration (3 jours)
   const daysUntilExpiry = (createdAt: string) => {
@@ -275,7 +373,8 @@ export default function PromotionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Promotions</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {activePromos.length} active(s) &middot; {pendingPromos.length} en attente
+            {totalActive} active(s) &middot; {totalPending} en attente
+            {totalRejected > 0 && <> &middot; {totalRejected} rejetée(s)</>}
           </p>
         </div>
         <Button
@@ -286,6 +385,158 @@ export default function PromotionsPage() {
           <Plus size={14} />
           Nouvelle promotion
         </Button>
+      </div>
+
+      {/* Recherche + tri */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Search by name */}
+          <div className="relative flex-1 min-w-0">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher par nom..."
+              className="rounded-xl h-10 pl-9 pr-9"
+              aria-label="Rechercher une promotion par nom"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                aria-label="Effacer la recherche"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Sort dropdown */}
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="rounded-xl h-10 px-3 min-w-[180px] text-xs gap-2 border border-input bg-white">
+              <span className="flex items-center gap-1.5 text-gray-500">
+                <ArrowUpDown size={14} />
+                <SelectValue placeholder="Trier par..." />
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Plus récentes</SelectItem>
+              <SelectItem value="name_asc">Nom (A → Z)</SelectItem>
+              <SelectItem value="name_desc">Nom (Z → A)</SelectItem>
+              <SelectItem value="start_asc">Début (ancien → récent)</SelectItem>
+              <SelectItem value="start_desc">Début (récent → ancien)</SelectItem>
+              <SelectItem value="end_asc">Fin (ancien → récent)</SelectItem>
+              <SelectItem value="end_desc">Fin (récent → ancien)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Advanced filters toggle */}
+          <Button
+            type="button"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            variant="outline"
+            size="sm"
+            className="rounded-xl h-10 gap-1.5 text-xs relative shrink-0"
+            aria-expanded={filtersOpen}
+            aria-controls="promo-advanced-filters"
+          >
+            <Filter size={14} />
+            Filtres années
+            {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {hasDateFilters && (
+              <span
+                className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cma-or rounded-full border-2 border-white"
+                aria-label="Filtres de date actifs"
+              />
+            )}
+          </Button>
+        </div>
+
+        {/* Advanced filters panel */}
+        {filtersOpen && (
+          <Card
+            id="promo-advanced-filters"
+            className="rounded-2xl border-0 shadow-sm border-l-4"
+            style={{ borderLeftColor: "#D4A017" }}
+          >
+            <CardContent className="p-4 space-y-4">
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block">
+                  Année de début (plage inclusive)
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <YearSelect
+                    value={startYearFrom}
+                    onChange={setStartYearFrom}
+                    placeholder="De"
+                    variant="light"
+                  />
+                  <YearSelect
+                    value={startYearTo}
+                    onChange={setStartYearTo}
+                    placeholder="À"
+                    variant="light"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block">
+                  Année de fin (plage inclusive)
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <YearSelect
+                    value={endYearFrom}
+                    onChange={setEndYearFrom}
+                    placeholder="De"
+                    variant="light"
+                  />
+                  <YearSelect
+                    value={endYearTo}
+                    onChange={setEndYearTo}
+                    placeholder="À"
+                    variant="light"
+                  />
+                </div>
+              </div>
+              {hasDateFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartYearFrom(null);
+                    setStartYearTo(null);
+                    setEndYearFrom(null);
+                    setEndYearTo(null);
+                  }}
+                  className="text-xs text-cma-bordeaux hover:underline flex items-center gap-1"
+                >
+                  <X size={12} /> Réinitialiser les plages de dates
+                </button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Active filter summary */}
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+            <span>
+              <span className="font-medium text-gray-700">{filteredTotal}</span> résultat
+              {filteredTotal > 1 ? "s" : ""} sur {totalAll}
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-cma-bordeaux hover:underline flex items-center gap-1"
+            >
+              <X size={12} /> Réinitialiser tout
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Formulaire création */}
@@ -453,10 +704,33 @@ export default function PromotionsPage() {
           <Card className="rounded-2xl border-0 shadow-sm">
             <CardContent className="p-12 text-center">
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <GraduationCap size={24} className="text-gray-300" />
+                {hasActiveFilters ? (
+                  <Search size={24} className="text-gray-300" />
+                ) : (
+                  <GraduationCap size={24} className="text-gray-300" />
+                )}
               </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">Aucune promotion active</h3>
-              <p className="text-sm text-gray-400">Créez votre première promotion avec le bouton ci-dessus</p>
+              {hasActiveFilters && totalActive > 0 ? (
+                <>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Aucun résultat</h3>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Aucune promotion active ne correspond à vos filtres ({totalActive} au total)
+                  </p>
+                  <Button
+                    onClick={clearFilters}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl gap-1.5 text-xs"
+                  >
+                    <X size={12} /> Réinitialiser les filtres
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Aucune promotion active</h3>
+                  <p className="text-sm text-gray-400">Créez votre première promotion avec le bouton ci-dessus</p>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (

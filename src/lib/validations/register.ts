@@ -14,6 +14,39 @@ const textField = (min: number, max: number) =>
     .max(max, `Maximum ${max} caractères`)
     .refine((val) => !XSS_BLOCKLIST.test(val), "Caractères non autorisés");
 
+// Champ texte optionnel avec contrôle XSS.
+// Traite "" comme undefined pour que les champs vides passent .optional().
+const optionalTextField = (max: number) =>
+  z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z
+      .string()
+      .max(max, `Maximum ${max} caractères`)
+      .refine((val) => !XSS_BLOCKLIST.test(val), "Caractères non autorisés")
+      .optional()
+  );
+
+// Champ année optionnel. type="number" produit "" quand vide — on convertit
+// en undefined AVANT coerce.number() pour éviter que "" → 0 ne casse min().
+const optionalYearField = (min: number) =>
+  z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.coerce
+      .number()
+      .int("Année invalide")
+      .min(min, `Année ≥ ${min}`)
+      .max(2100, "Année ≤ 2100")
+      .optional()
+  );
+
+// Tag text (élément de tableau) avec contrôle XSS.
+const tagText = (max: number) =>
+  z
+    .string()
+    .min(1, "Valeur vide")
+    .max(max, `Maximum ${max} caractères`)
+    .refine((val) => !XSS_BLOCKLIST.test(val), "Caractères non autorisés");
+
 // ─── Étape 1 — Profil de base ───
 
 export const step1Schema = z.object({
@@ -21,7 +54,7 @@ export const step1Schema = z.object({
   last_name: textField(1, 100),
   date_of_birth: z.string().min(1, "Date de naissance requise"),
   nationality: z
-    .array(z.string().min(1).max(100))
+    .array(tagText(100))
     .min(1, "Au moins une nationalité requise")
     .max(5, "Maximum 5 nationalités"),
   country: textField(1, 100),
@@ -33,25 +66,25 @@ export type Step1Data = z.infer<typeof step1Schema>;
 // ─── Étape 2A — Branche Alumni ───
 
 export const step2AlumniSchema = z.object({
-  promotion_name: z.string().min(1, "Promotion requise").max(150),
+  promotion_name: textField(1, 150),
   is_new_promo: z.boolean(),
   promo_start_date: z.coerce.number().int().min(1980, "Année invalide").max(new Date().getFullYear() + 10, "Année invalide"),
   filiere: z.enum(
     ["SVT", "SES", "SMP", "Section A", "Section B", "Section C", "Section D"],
     "Filière requise"
   ),
-  activities: z.array(z.string()),
+  activities: z.array(z.string().uuid()),
   institution_type: z.enum(
     ["university", "professional_school", "other"],
     "Type d'institution requis"
   ),
   institution_name: textField(1, 200),
   study_field: textField(1, 150),
-  degree_level: z.string().max(100).optional(),
-  start_year: z.coerce.number().int().min(1950).max(2100).optional(),
-  end_year: z.coerce.number().int().min(1950).max(2100).optional(),
+  degree_level: optionalTextField(100),
+  start_year: optionalYearField(1950),
+  end_year: optionalYearField(1950),
   job_title: textField(1, 150),
-  job_company: z.string().max(200).optional(),
+  job_company: optionalTextField(200),
 });
 
 export type Step2AlumniData = z.infer<typeof step2AlumniSchema>;
@@ -59,15 +92,15 @@ export type Step2AlumniData = z.infer<typeof step2AlumniSchema>;
 // ─── Étape 2B — Branche S4 ───
 
 export const step2S4Schema = z.object({
-  promotion_name: z.string().min(1, "Promotion requise").max(150),
+  promotion_name: textField(1, 150),
   promo_start_date: z.coerce.number().int().min(1980, "Année invalide").max(new Date().getFullYear() + 10, "Année invalide"),
   filiere: z.enum(
     ["SVT", "SES", "SMP", "Section A", "Section B", "Section C", "Section D"],
     "Filière requise"
   ),
-  activities: z.array(z.string()),
+  activities: z.array(z.string().uuid()),
   desired_study_fields: z
-    .array(z.string().min(1).max(150))
+    .array(tagText(150))
     .min(1, "Au moins un domaine requis")
     .max(3, "Maximum 3 domaines"),
 });
@@ -79,9 +112,9 @@ export type Step2S4Data = z.infer<typeof step2S4Schema>;
 export const step2StudentSchema = z.object({
   class: z.enum(["S1", "S2", "S3"], "Classe requise"),
   enrollment_date: z.coerce.number().int().min(1980, "Année invalide").max(new Date().getFullYear() + 10, "Année invalide"),
-  activities: z.array(z.string()),
+  activities: z.array(z.string().uuid()),
   desired_study_fields: z
-    .array(z.string().min(1).max(150))
+    .array(tagText(150))
     .min(1, "Au moins un domaine requis")
     .max(3, "Maximum 3 domaines"),
 });

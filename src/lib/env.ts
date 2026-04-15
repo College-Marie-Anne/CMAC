@@ -19,4 +19,8 @@ export const env = {
   get supabaseServiceRoleKey() {
     return requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY");
   },
+  /** Optional — emails silently skipped if not set (allows local dev without Resend). */
+  get resendApiKey(): string | null {
+    return process.env.RESEND_API_KEY ?? null;
+  },
 };

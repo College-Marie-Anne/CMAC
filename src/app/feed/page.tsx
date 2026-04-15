@@ -48,6 +48,25 @@ export default async function FeedPage({
 
   await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
 
+  // Fetch unread DM count (non-admin only)
+  let unreadDmCount = 0;
+  if (profile.role !== "admin") {
+    const { data: myConvs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
+    const convIds = myConvs?.map((c) => c.id) ?? [];
+    if (convIds.length > 0) {
+      const { count } = await supabase
+        .from("direct_messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", convIds)
+        .neq("sender_id", user.id)
+        .eq("is_read", false);
+      unreadDmCount = count ?? 0;
+    }
+  }
+
   const isAdmin = profile.role === "admin";
   const initials = `${(profile.first_name || "?")[0]}${(profile.last_name || "?")[0]}`;
 
@@ -151,9 +170,14 @@ export default async function FeedPage({
           <FeedSearch />
         </div>
         <div className="flex items-center gap-2">
-          <button className="relative p-2 rounded-lg hover:bg-gray-50 transition-colors" aria-label="Notifications">
-            <Bell size={18} className="text-gray-500" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+          <button
+            type="button"
+            disabled
+            className="relative p-2 rounded-lg text-gray-300 cursor-not-allowed"
+            title="Notifications — Bientôt disponible"
+            aria-label="Notifications (bientôt disponible)"
+          >
+            <Bell size={18} />
           </button>
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
@@ -174,19 +198,46 @@ export default async function FeedPage({
           </div>
           <nav className="space-y-1 flex-1" aria-label="Navigation principale">
             {[
-              { href: "/feed", icon: Users, label: "Fil d'actualité", active: true },
-              { href: "/directory", icon: Search, label: "Annuaire" },
-              { href: "/promo", icon: GraduationCap, label: "Coin Promo" },
-              { href: "/mentorship", icon: Handshake, label: "Mentorat" },
-              { href: "/opportunities", icon: Award, label: "Bourses & Opportunités" },
-              { href: "/messages", icon: MessageSquare, label: "Messages" },
-              { href: "/support", icon: HeadphonesIcon, label: "Support" },
-            ].map((item) => (
-              <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${item.active ? "bg-cma-bordeaux/5 text-cma-bordeaux font-medium" : "text-gray-500 hover:bg-gray-50"}`}>
-                <item.icon size={18} />
-                {item.label}
-              </Link>
-            ))}
+              { href: "/feed", icon: Users, label: "Fil d'actualité", active: true, implemented: true },
+              { href: "/directory", icon: Search, label: "Annuaire", implemented: false },
+              { href: "/promo", icon: GraduationCap, label: "Coin Promo", implemented: false },
+              { href: "/mentorship", icon: Handshake, label: "Mentorat", implemented: false },
+              { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: false },
+              { href: "/messages", icon: MessageSquare, label: "Messages", implemented: !isAdmin, badge: unreadDmCount > 0 ? unreadDmCount : undefined },
+              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: false },
+            ].map((item) => {
+              if (!item.implemented) {
+                return (
+                  <div
+                    key={item.href}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 cursor-not-allowed select-none"
+                    title="Bientôt disponible"
+                    aria-disabled="true"
+                  >
+                    <span className="flex items-center gap-3">
+                      <item.icon size={18} />
+                      {item.label}
+                    </span>
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cma-or/10 text-cma-or">
+                      Bientôt
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <Link key={item.href} href={item.href} className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${item.active ? "bg-cma-bordeaux/5 text-cma-bordeaux font-medium" : "text-gray-500 hover:bg-gray-50"}`}>
+                  <span className="flex items-center gap-3">
+                    <item.icon size={18} />
+                    {item.label}
+                  </span>
+                  {item.badge && item.badge > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-cma-bordeaux text-white text-[10px] font-bold flex items-center justify-center">
+                      {item.badge > 9 ? "9+" : item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
           <div className="space-y-1 pt-4 border-t border-gray-100">
             {isAdmin && (
@@ -223,18 +274,35 @@ export default async function FeedPage({
           <Users size={20} />
           <span className="text-[10px] font-medium">Feed</span>
         </Link>
-        <Link href="/directory" className="flex flex-col items-center gap-0.5 text-gray-400">
+        <div
+          className="flex flex-col items-center gap-0.5 text-gray-300 cursor-not-allowed select-none relative"
+          title="Bientôt disponible"
+          aria-disabled="true"
+        >
           <Search size={20} />
           <span className="text-[10px]">Annuaire</span>
-        </Link>
+          <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-cma-or" aria-hidden="true" />
+        </div>
         <MobileCreateButton
           tags={(tags ?? []).map((t) => ({ ...t, is_system: t.is_system ?? false }))}
           userId={user.id}
         />
-        <Link href="/messages" className="flex flex-col items-center gap-0.5 text-gray-400">
-          <MessageSquare size={20} />
-          <span className="text-[10px]">Messages</span>
-        </Link>
+        {isAdmin ? (
+          <div className="flex flex-col items-center gap-0.5 text-gray-300 cursor-not-allowed select-none" title="Non disponible pour les admins" aria-disabled="true">
+            <MessageSquare size={20} />
+            <span className="text-[10px]">Messages</span>
+          </div>
+        ) : (
+          <Link href="/messages" className="flex flex-col items-center gap-0.5 text-gray-500 hover:text-cma-bordeaux transition-colors relative">
+            <MessageSquare size={20} />
+            <span className="text-[10px]">Messages</span>
+            {unreadDmCount > 0 && (
+              <span className="absolute -top-1 right-0 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadDmCount > 9 ? "9+" : unreadDmCount}
+              </span>
+            )}
+          </Link>
+        )}
         <MobileProfileMenu initials={initials} username={profile.username} themePreference={profile.theme_preference ?? "system"} />
       </nav>
       <div className="lg:hidden h-14" />

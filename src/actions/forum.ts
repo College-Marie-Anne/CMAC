@@ -141,10 +141,10 @@ export async function pinPostAction(
   postId: string
 ): Promise<ForumActionResult> {
   try {
-    const { supabase, user } = await requireAuth();
+    const { supabase, profile } = await requireAuth();
 
     // Only admin can pin
-    if (!["admin"].includes((await requireAuth()).profile.role))
+    if (profile.role !== "admin")
       return { success: false, error: "Seuls les admins peuvent épingler" };
 
     // Toggle pin state
@@ -163,12 +163,8 @@ export async function pinPostAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: post.is_pinned ? "unpin_post" : "pin_post",
-      target_type: "forum_post",
-      target_id: postId,
-    });
+    // Audit log auto via trigger trg_audit_forum_posts_update
+    // (action 'pin_post' ou 'unpin_post' détectée via toggle de is_pinned).
 
     revalidatePath("/feed");
     revalidatePath(`/feed/${postId}`);

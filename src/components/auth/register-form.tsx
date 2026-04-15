@@ -190,7 +190,7 @@ function TagInput({
           />
           <Button
             type="button"
-            onClick={addTag}
+            onClick={() => addTag()}
             disabled={disabled || !input.trim()}
             size="icon"
             className="shrink-0 h-11 w-11 rounded-xl"
@@ -407,99 +407,98 @@ export function RegisterForm() {
             boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
           }}
         >
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-            {/* ─── ÉTAPE 1 ─── */}
-            {currentStep === "step1" && (
-              <Step1Form
-                key="step1"
-                direction={direction}
-                defaultValues={step1Data}
-                onNext={(data) => {
-                  setStep1Data(data);
-                  if (data.status_type === "ancienne") {
-                    goTo("step2_alumni", 1);
-                  } else {
-                    goTo("eleve_sub", 1);
-                  }
-                }}
-              />
-            )}
+          {/*
+            Animation des transitions d'étape retirée : framer-motion v12 +
+            React 19 + AnimatePresence présentait un bug où l'exit animation
+            ne se déclenchait pas, figeant le wizard sur l'étape 1.
+            motion.div keyé sur currentStep reste pour l'animation initiale de
+            chaque forme (fade-in/slide-in), mais React gère lui-même l'unmount
+            du pas précédent — plus de mode="wait" / AnimatePresence.
+          */}
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            transition={{ duration: 0.3 }}
+          >
+            <>
+              {currentStep === "step1" && (
+                <Step1Form
+                  defaultValues={step1Data}
+                  onNext={(data) => {
+                    setStep1Data(data);
+                    if (data.status_type === "ancienne") {
+                      goTo("step2_alumni", 1);
+                    } else {
+                      goTo("eleve_sub", 1);
+                    }
+                  }}
+                />
+              )}
 
-            {/* ─── SOUS-SÉLECTION ÉLÈVE ─── */}
-            {currentStep === "eleve_sub" && (
-              <EleveSubForm
-                key="eleve_sub"
-                direction={direction}
-                onBack={() => goTo("step1", -1)}
-                onNext={(sub) => {
-                  setEleveSubType(sub);
-                  goTo(sub === "s4" ? "step2_s4" : "step2_student", 1);
-                }}
-              />
-            )}
+              {currentStep === "eleve_sub" && (
+                <EleveSubForm
+                  onBack={() => goTo("step1", -1)}
+                  onNext={(sub) => {
+                    setEleveSubType(sub);
+                    goTo(sub === "s4" ? "step2_s4" : "step2_student", 1);
+                  }}
+                />
+              )}
 
-            {/* ─── ÉTAPE 2A — ALUMNI ─── */}
-            {currentStep === "step2_alumni" && (
-              <Step2AlumniForm
-                key="step2_alumni"
-                direction={direction}
-                promotions={promotions}
-                activities={activities}
-                defaultValues={step2AlumniData}
-                onBack={() => goTo("step1", -1)}
-                onNext={(data) => {
-                  setStep2AlumniData(data);
-                  goTo("step3", 1);
-                }}
-              />
-            )}
+              {currentStep === "step2_alumni" && (
+                <Step2AlumniForm
+                  promotions={promotions}
+                  activities={activities}
+                  defaultValues={step2AlumniData}
+                  onBack={() => goTo("step1", -1)}
+                  onNext={(data) => {
+                    setStep2AlumniData(data);
+                    goTo("step3", 1);
+                  }}
+                />
+              )}
 
-            {/* ─── ÉTAPE 2B — S4 ─── */}
-            {currentStep === "step2_s4" && (
-              <Step2S4Form
-                key="step2_s4"
-                direction={direction}
-                promotions={promotions}
-                activities={activities}
-                defaultValues={step2S4Data}
-                onBack={() => goTo("eleve_sub", -1)}
-                onNext={(data) => {
-                  setStep2S4Data(data);
-                  goTo("step3", 1);
-                }}
-              />
-            )}
+              {currentStep === "step2_s4" && (
+                <Step2S4Form
+                  promotions={promotions}
+                  activities={activities}
+                  defaultValues={step2S4Data}
+                  onBack={() => goTo("eleve_sub", -1)}
+                  onNext={(data) => {
+                    setStep2S4Data(data);
+                    goTo("step3", 1);
+                  }}
+                />
+              )}
 
-            {/* ─── ÉTAPE 2C — S1-S3 ─── */}
-            {currentStep === "step2_student" && (
-              <Step2StudentForm
-                key="step2_student"
-                direction={direction}
-                activities={activities}
-                defaultValues={step2StudentData}
-                onBack={() => goTo("eleve_sub", -1)}
-                onNext={(data) => {
-                  setStep2StudentData(data);
-                  goTo("step3", 1);
-                }}
-              />
-            )}
+              {currentStep === "step2_student" && (
+                <Step2StudentForm
+                  activities={activities}
+                  defaultValues={step2StudentData}
+                  onBack={() => goTo("eleve_sub", -1)}
+                  onNext={(data) => {
+                    setStep2StudentData(data);
+                    goTo("step3", 1);
+                  }}
+                />
+              )}
 
-            {/* ─── ÉTAPE 3 ─── */}
-            {currentStep === "step3" && (
-              <Step3Form
-                key="step3"
-                direction={direction}
-                isPending={isPending}
-                onBack={() => {
-                  if (step1Data?.status_type === "ancienne") goTo("step2_alumni", -1);
-                  else if (eleveSubType === "s4") goTo("step2_s4", -1);
-                  else goTo("step2_student", -1);
-                }}
-                onSubmit={handleFinalSubmit}
-              />
-            )}
-          </AnimatePresence>
+              {currentStep === "step3" && (
+                <Step3Form
+                  isPending={isPending}
+                  onBack={() => {
+                    if (step1Data?.status_type === "ancienne") goTo("step2_alumni", -1);
+                    else if (eleveSubType === "s4") goTo("step2_s4", -1);
+                    else goTo("step2_student", -1);
+                  }}
+                  onSubmit={handleFinalSubmit}
+                />
+              )}
+            </>
+          </motion.div>
         </div>
 
         {/* Lien login */}
@@ -524,11 +523,9 @@ export function RegisterForm() {
 // ─── Étape 1 ───
 
 function Step1Form({
-  direction,
   defaultValues,
   onNext,
 }: {
-  direction: number;
   defaultValues: Step1Data | null;
   onNext: (data: Step1Data) => void;
 }) {
@@ -553,13 +550,7 @@ function Step1Form({
   const nationality = watch("nationality");
 
   return (
-    <motion.form
-      custom={direction}
-      variants={slideVariants}
-      initial="enter"
-      animate="center"
-      exit="exit"
-      transition={{ duration: 0.3 }}
+    <form
       onSubmit={handleSubmit(onNext)}
       className="space-y-4"
     >
@@ -689,18 +680,16 @@ function Step1Form({
         Continuer
         <ArrowRight size={16} />
       </Button>
-    </motion.form>
+    </form>
   );
 }
 
 // ─── Sous-sélection élève ───
 
 function EleveSubForm({
-  direction,
   onBack,
   onNext,
 }: {
-  direction: number;
   onBack: () => void;
   onNext: (sub: "s4" | "s1_s3") => void;
 }) {
@@ -714,13 +703,7 @@ function EleveSubForm({
   });
 
   return (
-    <motion.form
-      custom={direction}
-      variants={slideVariants}
-      initial="enter"
-      animate="center"
-      exit="exit"
-      transition={{ duration: 0.3 }}
+    <form
       onSubmit={handleSubmit((d) => onNext(d.sub_type))}
       className="space-y-4"
     >
@@ -784,21 +767,19 @@ function EleveSubForm({
           <ArrowRight size={16} />
         </Button>
       </div>
-    </motion.form>
+    </form>
   );
 }
 
 // ─── Étape 2A — Alumni ───
 
 function Step2AlumniForm({
-  direction,
   promotions,
   activities,
   defaultValues,
   onBack,
   onNext,
 }: {
-  direction: number;
   promotions: { id: string; name: string; end_date: number | null }[];
   activities: { id: string; name: string }[];
   defaultValues: Step2AlumniData | null;
@@ -873,13 +854,7 @@ function Step2AlumniForm({
   })();
 
   return (
-    <motion.form
-      custom={direction}
-      variants={slideVariants}
-      initial="enter"
-      animate="center"
-      exit="exit"
-      transition={{ duration: 0.3 }}
+    <form
       onSubmit={handleSubmit(onNext)}
       className="space-y-4 max-h-[60vh] overflow-y-auto pr-1"
     >
@@ -895,15 +870,26 @@ function Step2AlumniForm({
             <SelectTrigger className={inputClass} style={inputStyle}>
               <SelectValue placeholder="Sélectionnez votre promotion" />
             </SelectTrigger>
-            <SelectContent>
-              <div className="px-3 py-2">
+            {/* position="popper" : nécessaire car le SelectContent contient du contenu
+                 non-SelectItem (input de recherche, état vide) qui casse le positionnement
+                 "item-aligned" par défaut (popup rendue loin à droite du trigger). */}
+            <SelectContent
+              position="popper"
+              align="start"
+              sideOffset={4}
+              className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+            >
+              <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border/40">
                 <input
                   ref={promoSearchRef}
                   value={promoSearch}
                   onChange={(e) => setPromoSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Empêche Radix de voler le focus (espace, flèches navigue items)
+                    if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation();
+                  }}
                   placeholder="Rechercher une promotion"
-                  className="w-full h-9 rounded-xl border border-transparent bg-input/50 px-3 py-1 text-sm text-white transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                  style={inputStyle}
+                  className="w-full h-9 rounded-xl border border-border bg-background px-3 py-1 text-sm text-popover-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                 />
               </div>
               {filteredPromotions.map((p) => (
@@ -1049,21 +1035,19 @@ function Step2AlumniForm({
           Continuer <ArrowRight size={16} />
         </Button>
       </div>
-    </motion.form>
+    </form>
   );
 }
 
 // ─── Étape 2B — S4 ───
 
 function Step2S4Form({
-  direction,
   promotions,
   activities,
   defaultValues,
   onBack,
   onNext,
 }: {
-  direction: number;
   promotions: { id: string; name: string; end_date: number | null }[];
   activities: { id: string; name: string }[];
   defaultValues: Step2S4Data | null;
@@ -1100,20 +1084,25 @@ function Step2S4Form({
   })();
 
   return (
-    <motion.form custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} onSubmit={handleSubmit(onNext)} className="space-y-4">
+    <form onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Promotion actuelle</Label>
         <Select value={watch("promotion_name")} onOpenChange={handleSelectOpenChange} onValueChange={(v) => setValue("promotion_name", v, { shouldValidate: true })}>
           <SelectTrigger className={inputClass} style={inputStyle}><SelectValue placeholder="Sélectionnez" /></SelectTrigger>
-          <SelectContent>
-            <div className="px-3 py-2">
+          <SelectContent
+            position="popper"
+            align="start"
+            sideOffset={4}
+            className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+          >
+            <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border/40">
               <input
                 ref={promoSearchRef}
                 value={promoSearch}
                 onChange={(e) => setPromoSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation(); }}
                 placeholder="Rechercher une promotion"
-                className="w-full h-9 rounded-xl border border-transparent bg-input/50 px-3 py-1 text-sm text-white transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                style={inputStyle}
+                className="w-full h-9 rounded-xl border border-border bg-background px-3 py-1 text-sm text-popover-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
               />
             </div>
             {filteredPromotions.map((p) => (
@@ -1173,20 +1162,18 @@ function Step2S4Form({
         <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
         <Button type="submit" className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>Continuer <ArrowRight size={16} /></Button>
       </div>
-    </motion.form>
+    </form>
   );
 }
 
 // ─── Étape 2C — S1-S3 ───
 
 function Step2StudentForm({
-  direction,
   activities,
   defaultValues,
   onBack,
   onNext,
 }: {
-  direction: number;
   activities: { id: string; name: string }[];
   defaultValues: Step2StudentData | null;
   onBack: () => void;
@@ -1202,17 +1189,16 @@ function Step2StudentForm({
   const selectedActivities = watch("activities");
   const desiredFields = watch("desired_study_fields");
 
-  // Calcul automatique de la date de fin
-  const expectedEndDate = (() => {
-    if (!enrollmentDate || !selectedClass) return "";
-    const d = new Date(enrollmentDate);
+  // Calcul automatique de l'année de fin (migration 011 : enrollment_date est un INTEGER année).
+  // S1 → +3 ans, S2 → +2 ans, S3 → +1 an (spec §108).
+  const expectedEndYear = (() => {
+    if (!enrollmentDate || !selectedClass) return null;
     const years = selectedClass === "S1" ? 3 : selectedClass === "S2" ? 2 : 1;
-    d.setFullYear(d.getFullYear() + years);
-    return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    return Number(enrollmentDate) + years;
   })();
 
   return (
-    <motion.form custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} onSubmit={handleSubmit(onNext)} className="space-y-4">
+    <form onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Classe actuelle</Label>
         <Select value={selectedClass} onValueChange={(v) => setValue("class", v as Step2StudentData["class"], { shouldValidate: true })}>
@@ -1230,10 +1216,10 @@ function Step2StudentForm({
         {errors.enrollment_date && <p className={errorClass} style={errorColor}>{errors.enrollment_date.message}</p>}
       </div>
 
-      {expectedEndDate && (
+      {expectedEndYear && (
         <div className="rounded-xl px-4 py-3" style={{ background: "rgba(0,107,63,0.15)", border: "1px solid rgba(0,107,63,0.3)" }}>
           <p className="text-xs" style={{ color: "#8fd6b4" }}>
-            Date de fin prévue : <span className="font-medium">{expectedEndDate}</span>
+            Année de fin prévue : <span className="font-medium">{expectedEndYear}</span>
           </p>
         </div>
       )}
@@ -1259,19 +1245,17 @@ function Step2StudentForm({
         <Button type="button" onClick={onBack} variant="outline" className="h-11 rounded-xl gap-1" style={{ backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)", color: "#F5DEB3" }}><ArrowLeft size={14} /> Retour</Button>
         <Button type="submit" className="flex-1 h-11 rounded-xl text-sm font-semibold gap-2" style={{ background: "linear-gradient(135deg, #D4A017 0%, #b8860b 100%)", color: "#3a000f" }}>Continuer <ArrowRight size={16} /></Button>
       </div>
-    </motion.form>
+    </form>
   );
 }
 
 // ─── Étape 3 — Compte ───
 
 function Step3Form({
-  direction,
   isPending,
   onBack,
   onSubmit,
 }: {
-  direction: number;
   isPending: boolean;
   onBack: () => void;
   onSubmit: (data: Step3Data) => void;
@@ -1283,7 +1267,7 @@ function Step3Form({
   });
 
   return (
-    <motion.form custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Username</Label>
         <Input {...register("username")} placeholder="mon_pseudo" className={inputClass} style={errors.username ? inputErrorStyle : inputStyle} disabled={isPending} />
@@ -1339,6 +1323,6 @@ function Step3Form({
           {isPending ? (<span className="flex items-center gap-2"><Loader2 size={16} className="animate-spin" />Inscription...</span>) : "Créer mon compte"}
         </Button>
       </div>
-    </motion.form>
+    </form>
   );
 }

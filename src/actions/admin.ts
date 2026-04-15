@@ -106,7 +106,7 @@ export async function approveUserAction(
   userId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
@@ -119,12 +119,8 @@ export async function approveUserAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "approve_user",
-      target_type: "profile",
-      target_id: userId,
-    });
+    // Audit log : inséré automatiquement par trigger trg_audit_profiles_update
+    // (migration 020) — action 'approve_user' détectée via la transition status.
 
     revalidatePath("/admin/approvals");
     return { success: true };
@@ -137,7 +133,7 @@ export async function rejectUserAction(
   userId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
@@ -150,12 +146,7 @@ export async function rejectUserAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "reject_user",
-      target_type: "profile",
-      target_id: userId,
-    });
+    // Audit log auto via trigger (action 'reject_user' détectée : pending → deactivated).
 
     revalidatePath("/admin/approvals");
     return { success: true };
@@ -168,7 +159,7 @@ export async function bulkApproveAction(
   userIds: string[]
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("profiles")
@@ -178,13 +169,8 @@ export async function bulkApproveAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "bulk_approve",
-      target_type: "profile",
-      target_id: userIds.join(","),
-      details: { count: userIds.length },
-    });
+    // Audit log : N entrées 'approve_user' individuelles générées par trigger
+    // (plus granulaire que 'bulk_approve' — même admin + même timestamp = bulk inféré).
 
     revalidatePath("/admin/approvals");
     return { success: true };
@@ -200,7 +186,7 @@ export async function suspendUserAction(
   reason?: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
@@ -212,13 +198,10 @@ export async function suspendUserAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "suspend_user",
-      target_type: "profile",
-      target_id: userId,
-      details: reason ? { reason } : null,
-    });
+    // Audit log auto via trigger (action 'suspend_user' détectée via transition status).
+    // Note : le motif (reason) n'est plus capturé dans l'audit — à passer via
+    // un paramètre supplémentaire à la fonction log_admin_action si besoin.
+    void reason; // conservé pour compat API, usage à étendre via RPC dédiée
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -231,7 +214,7 @@ export async function reactivateUserAction(
   userId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
@@ -243,12 +226,7 @@ export async function reactivateUserAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "reactivate_user",
-      target_type: "profile",
-      target_id: userId,
-    });
+    // Audit log auto via trigger (action 'reactivate_user' détectée).
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -261,7 +239,7 @@ export async function deactivateUserAction(
   userId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
@@ -273,12 +251,7 @@ export async function deactivateUserAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "deactivate_user",
-      target_type: "profile",
-      target_id: userId,
-    });
+    // Audit log auto via trigger (action 'deactivate_user' détectée).
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -297,7 +270,7 @@ export async function createAdminAction(data: {
   temp_password: string;
 }): Promise<AdminActionResult> {
   try {
-    const { supabase, user, profile } = await requireAdmin();
+    const { supabase, profile } = await requireAdmin();
 
     if (!profile.is_super_admin)
       return { success: false, error: "Seul le super-admin peut créer des admins" };
@@ -354,13 +327,7 @@ export async function createAdminAction(data: {
     if (profileError)
       return { success: false, error: profileError.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "create_admin",
-      target_type: "profile",
-      target_id: authData.user.id,
-      details: { username: data.username, email: data.email },
-    });
+    // Audit log auto via trigger trg_audit_profiles_insert (action 'create_admin').
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -376,7 +343,7 @@ export async function createTagAction(
   color: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("forum_tags")
@@ -388,12 +355,7 @@ export async function createTagAction(
       return { success: false, error: error.message };
     }
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "create_tag",
-      target_type: "forum_tag",
-      target_id: name,
-    });
+    // Audit log auto via trigger trg_audit_forum_tags (action 'create_tag').
 
     revalidatePath("/admin/tags");
     return { success: true };
@@ -408,7 +370,7 @@ export async function updateTagAction(
   color: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("forum_tags")
@@ -418,12 +380,7 @@ export async function updateTagAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "update_tag",
-      target_type: "forum_tag",
-      target_id: tagId,
-    });
+    // Audit log auto via trigger (action 'update_tag').
 
     revalidatePath("/admin/tags");
     return { success: true };
@@ -436,7 +393,7 @@ export async function deleteTagAction(
   tagId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("forum_tags")
@@ -450,12 +407,7 @@ export async function deleteTagAction(
       return { success: false, error: error.message };
     }
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "delete_tag",
-      target_type: "forum_tag",
-      target_id: tagId,
-    });
+    // Audit log auto via trigger (action 'delete_tag').
 
     revalidatePath("/admin/tags");
     return { success: true };
@@ -470,7 +422,7 @@ export async function createActivityAction(
   name: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("activities")
@@ -482,12 +434,7 @@ export async function createActivityAction(
       return { success: false, error: error.message };
     }
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "create_activity",
-      target_type: "activity",
-      target_id: name,
-    });
+    // Audit log auto via trigger trg_audit_activities (action 'create_activity').
 
     revalidatePath("/admin/activities");
     return { success: true };
@@ -501,7 +448,7 @@ export async function updateActivityAction(
   name: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("activities")
@@ -510,12 +457,7 @@ export async function updateActivityAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "update_activity",
-      target_type: "activity",
-      target_id: activityId,
-    });
+    // Audit log auto via trigger (action 'update_activity').
 
     revalidatePath("/admin/activities");
     return { success: true };
@@ -528,7 +470,7 @@ export async function deleteActivityAction(
   activityId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("activities")
@@ -537,12 +479,7 @@ export async function deleteActivityAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "delete_activity",
-      target_type: "activity",
-      target_id: activityId,
-    });
+    // Audit log auto via trigger (action 'delete_activity').
 
     revalidatePath("/admin/activities");
     return { success: true };
@@ -584,7 +521,7 @@ export async function deletePostAction(
   postId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("forum_posts")
@@ -593,12 +530,8 @@ export async function deletePostAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "delete_post",
-      target_type: "forum_post",
-      target_id: postId,
-    });
+    // Audit log auto via trigger trg_audit_forum_posts_update (action 'delete_post'
+    // détectée car is_deleted passe à true et auth.uid() ≠ author_id).
 
     revalidatePath("/admin/moderation");
     return { success: true };
@@ -611,7 +544,7 @@ export async function deleteCommentAction(
   commentId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("forum_comments")
@@ -620,12 +553,7 @@ export async function deleteCommentAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "delete_comment",
-      target_type: "forum_comment",
-      target_id: commentId,
-    });
+    // Audit log auto via trigger trg_audit_forum_comments_update (action 'delete_comment').
 
     revalidatePath("/admin/moderation");
     return { success: true };
@@ -640,7 +568,7 @@ export async function revokeInvitationAction(
   linkId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("invitation_links")
@@ -649,12 +577,7 @@ export async function revokeInvitationAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "revoke_invitation",
-      target_type: "invitation_link",
-      target_id: linkId,
-    });
+    // Audit log auto via trigger trg_audit_invitation_links (action 'revoke_invitation').
 
     revalidatePath("/admin/invitations");
     return { success: true };
@@ -670,7 +593,7 @@ export async function assignTicketAction(
   adminId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     // Vérifier que l'admin cible existe, est admin et est actif
     const { data: targetAdmin, error: targetErr } = await supabase
@@ -689,13 +612,7 @@ export async function assignTicketAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "assign_ticket",
-      target_type: "support_ticket",
-      target_id: ticketId,
-      details: { assigned_to: adminId },
-    });
+    // Audit log auto via trigger trg_audit_support_tickets (action 'assign_ticket').
 
     revalidatePath("/admin/support");
     return { success: true };
@@ -709,7 +626,7 @@ export async function respondTicketAction(
   response: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("support_tickets")
@@ -722,12 +639,7 @@ export async function respondTicketAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "respond_ticket",
-      target_type: "support_ticket",
-      target_id: ticketId,
-    });
+    // Audit log auto via trigger (action 'respond_ticket' détectée via admin_response).
 
     revalidatePath("/admin/support");
     revalidatePath(`/admin/support/${ticketId}`);
@@ -741,7 +653,7 @@ export async function closeTicketAction(
   ticketId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user } = await requireAdmin();
+    const { supabase } = await requireAdmin();
 
     const { error } = await supabase
       .from("support_tickets")
@@ -750,12 +662,7 @@ export async function closeTicketAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "close_ticket",
-      target_type: "support_ticket",
-      target_id: ticketId,
-    });
+    // Audit log auto via trigger (action 'close_ticket' détectée via status → closed).
 
     revalidatePath("/admin/support");
     revalidatePath(`/admin/support/${ticketId}`);
@@ -823,7 +730,7 @@ export async function updateProfileAction(
   updates: Record<string, unknown>
 ): Promise<AdminActionResult> {
   try {
-    const { supabase, user, profile: adminProfile } = await requireAdmin();
+    const { supabase, profile: adminProfile } = await requireAdmin();
 
     const sanitized: Record<string, unknown> = {};
     const rejected: string[] = [];
@@ -865,13 +772,10 @@ export async function updateProfileAction(
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.from("admin_audit_log").insert({
-      admin_id: user.id,
-      action: "update_profile",
-      target_type: "profile",
-      target_id: userId,
-      details: { applied: sanitized, rejected },
-    });
+    // Audit log auto via trigger trg_audit_profiles_update (action détectée
+    // selon les champs modifiés : status transition, role, promo_id, ou update_profile).
+    // Les rejected fields ne sont plus capturés dans les détails — prune silencieux.
+    void rejected;
 
     revalidatePath(`/admin/users/${userId}`);
     revalidatePath("/admin/users");
