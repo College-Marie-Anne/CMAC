@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
+import { compressImage } from "@/lib/image-compress";
 
 type Promotion = {
   id: string;
@@ -139,13 +140,25 @@ export default function PromotionsPage() {
   }, []);
 
   // Upload emblème vers Supabase Storage
+  // Spec §805 : 200x200 max, formats PNG/WebP (transparence préservée — pas de JPEG)
   const uploadEmblem = async (file: File, promoId: string): Promise<string | null> => {
-    const ext = file.name.split(".").pop();
+    let toUpload: File;
+    try {
+      toUpload = await compressImage(file, {
+        maxWidth: 200,
+        maxHeight: 200,
+        // preferJpeg: false → conserve PNG/WebP (transparence)
+      });
+    } catch {
+      toUpload = file;
+    }
+
+    const ext = (toUpload.name.split(".").pop() ?? "png").toLowerCase();
     const path = `${promoId}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("emblems")
-      .upload(path, file, { upsert: true });
+      .upload(path, toUpload, { upsert: true });
 
     if (uploadError) return null;
 

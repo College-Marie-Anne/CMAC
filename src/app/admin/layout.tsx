@@ -2,6 +2,10 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 
+// Toutes les routes /admin/* sont authentifiées + requêtes DB par utilisatrice.
+// Force le rendu dynamique pour éliminer les warnings de prerender statique.
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

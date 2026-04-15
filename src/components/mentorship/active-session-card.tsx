@@ -36,6 +36,7 @@ export function ActiveSessionCard({ session, currentUserId }: ActiveSessionCardP
 
   const initials = `${(partner.first_name || "?")[0]}${(partner.last_name || "?")[0]}`;
   const startDateStr = timeAgo(session.started_at);
+  const isActive = session.status === "active";
 
   return (
     <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm transition-shadow hover:shadow-md">
@@ -53,7 +54,7 @@ export function ActiveSessionCard({ session, currentUserId }: ActiveSessionCardP
               {partner.first_name} {partner.last_name}
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              {isMentee ? "Votre mentor" : "Votre élève"} • Actif {startDateStr}
+              {isMentee ? "Votre mentor" : "Votre élève"} • {startDateStr}
             </p>
             {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
           </div>
@@ -64,8 +65,8 @@ export function ActiveSessionCard({ session, currentUserId }: ActiveSessionCardP
             L'utilisatrice peut utiliser l'onglet régulier 'Messages' pour chercher la conversation, 
             ou on peut juste la renvoyer vers `/messages`. */}
         <Link
-          href={`/messages`}
-          title="Ouvrir la messagerie"
+          href={`/mentorship/${session.id}`}
+          title="Voir la session"
           className="p-2 rounded-full text-gray-400 hover:bg-gray-50 hover:text-cma-bordeaux transition-colors"
         >
           <MessageSquare size={18} />
@@ -73,18 +74,28 @@ export function ActiveSessionCard({ session, currentUserId }: ActiveSessionCardP
       </div>
 
       <div className="mt-4 pt-3 border-t border-gray-50 flex justify-between items-center">
-        <div className="text-xs font-semibold text-cma-vert px-2.5 py-1 rounded-full bg-cma-vert/10 border border-cma-vert/20">
-          En cours
-        </div>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={handleTerminate}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+        <div
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+            isActive
+              ? "text-cma-vert bg-cma-vert/10 border-cma-vert/20"
+              : session.status === "completed"
+                ? "text-gray-700 bg-gray-100 border-gray-200"
+                : "text-orange-700 bg-orange-100 border-orange-200"
+          }`}
         >
-          {isPending ? <Loader2 size={12} className="animate-spin" /> : <FlagOff size={12} />}
-          Terminer la session
-        </button>
+          {isActive ? "En cours" : session.status === "completed" ? "Termine" : "Annule"}
+        </div>
+        {isActive && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleTerminate}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isPending ? <Loader2 size={12} className="animate-spin" /> : <FlagOff size={12} />}
+            Terminer la session
+          </button>
+        )}
       </div>
     </div>
   );

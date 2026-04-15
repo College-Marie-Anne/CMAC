@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@/components/auth/splash-screen";
 import { LoginForm } from "@/components/auth/login-form";
@@ -33,7 +33,9 @@ export default function Home() {
         {showSplash ? (
           <SplashScreen key="splash" onComplete={handleSplashComplete} />
         ) : (
-          <LoginForm key="login" />
+          <Suspense key="login" fallback={null}>
+            <LoginForm />
+          </Suspense>
         )}
       </AnimatePresence>
     </main>

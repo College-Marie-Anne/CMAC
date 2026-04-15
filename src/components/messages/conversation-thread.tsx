@@ -110,12 +110,22 @@ export function ConversationThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const updated = payload.new as DirectMessage;
-          setMessages((prev) =>
-            prev.map((m) =>
+          const updated = payload.new as DirectMessage & {
+            is_deleted_by_sender?: boolean;
+            is_deleted_by_receiver?: boolean;
+          };
+          const hiddenForCurrentUser =
+            (updated.sender_id === currentUserId && updated.is_deleted_by_sender) ||
+            (updated.sender_id !== currentUserId && updated.is_deleted_by_receiver);
+
+          setMessages((prev) => {
+            if (hiddenForCurrentUser) {
+              return prev.filter((m) => m.id !== updated.id);
+            }
+            return prev.map((m) =>
               m.id === updated.id ? { ...m, is_read: updated.is_read, read_at: updated.read_at } : m
-            )
-          );
+            );
+          });
         }
       )
       .subscribe();

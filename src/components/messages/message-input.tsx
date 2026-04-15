@@ -5,6 +5,7 @@ import { Send, ImagePlus, X, Loader2 } from "lucide-react";
 import { sendMessageAction } from "@/actions/messages";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
+import { compressImage } from "@/lib/image-compress";
 
 interface MessageInputProps {
   conversationId: string;
@@ -71,12 +72,22 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
       // Upload image first if present
       if (imageFile) {
         const supabase = createClient();
-        const ext = imageFile.name.split(".").pop() ?? "jpg";
+
+        // Compression côté client à 1200px max (spec §806)
+        let toUpload: File;
+        try {
+          toUpload = await compressImage(imageFile, { maxWidth: 1200 });
+        } catch {
+          // Fallback : si compression échoue, on upload l'original
+          toUpload = imageFile;
+        }
+
+        const ext = (toUpload.name.split(".").pop() ?? "jpg").toLowerCase();
         const path = `${userId}/${crypto.randomUUID()}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from("dm-images")
-          .upload(path, imageFile, { upsert: false });
+          .upload(path, toUpload, { upsert: false });
 
         if (uploadError) {
           setError("Erreur lors de l'upload de l'image");

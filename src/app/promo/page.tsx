@@ -2,16 +2,18 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { 
-  Users, 
-  Search, 
-  GraduationCap, 
-  Handshake, 
-  Award, 
-  MessageSquare, 
-  HeadphonesIcon, 
+import {
+  Users,
+  Search,
+  GraduationCap,
+  Handshake,
+  Award,
+  MessageSquare,
+  HeadphonesIcon,
   Settings,
-  Bell
+  Bell,
+  AlertCircle,
+  LifeBuoy,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileProfileMenu } from "@/components/feed/mobile-profile-menu";
@@ -43,22 +45,65 @@ export default async function PromoPage() {
     redirect("/login");
   }
 
-  // S1-S3 Case : No formal promotion yet
+  // Pas de promo : on distingue 2 cas (spec §1062-1063)
+  //   - S1-S3 (role 'student') → SeedBadge "Graine de CMA"
+  //   - Alumni / S4 sans promo (promo rejetée ou jamais attribuée) → message
+  //     "Contactez un admin" (le lien /promo doit déjà être masqué dans la nav)
   if (!profile.promo_id) {
-    const enrollmentYear = profile.enrollment_date 
-      ? new Date(profile.enrollment_date).getFullYear() 
+    const isStudent = profile.role === "student";
+    const enrollmentYear = profile.enrollment_date
+      ? new Date(profile.enrollment_date).getFullYear()
       : new Date().getFullYear();
 
     return (
       <div className="min-h-screen bg-cma-gris">
         <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
-           <Link href="/feed" className="flex items-center gap-3">
-             <Image src="/CMAC.jpeg" alt="CMA" width={32} height={32} className="object-cover scale-125" />
-             <span className="text-sm font-semibold text-gray-900">Coin Promo</span>
-           </Link>
+          <Link href="/feed" className="flex items-center gap-3">
+            <Image
+              src="/CMAC.jpeg"
+              alt="CMA"
+              width={32}
+              height={32}
+              className="object-cover scale-125"
+            />
+            <span className="text-sm font-semibold text-gray-900">
+              Coin Promo
+            </span>
+          </Link>
         </header>
         <main className="flex flex-col items-center justify-center p-6 mt-12">
-          <SeedBadge enrollmentYear={enrollmentYear} />
+          {isStudent ? (
+            <SeedBadge enrollmentYear={enrollmentYear} />
+          ) : (
+            <div className="max-w-md w-full text-center space-y-5">
+              <div className="mx-auto w-16 h-16 rounded-full bg-cma-or/10 border border-cma-or/30 flex items-center justify-center">
+                <AlertCircle size={28} className="text-cma-or" />
+              </div>
+              <h1 className="text-lg font-bold text-gray-900">
+                Vous n&apos;êtes pas encore liée à une promotion
+              </h1>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Votre Coin Promo n&apos;est pas accessible tant qu&apos;une
+                promotion n&apos;a pas été attribuée à votre compte. Contactez
+                un administrateur pour régler cette situation.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <Link
+                  href="/support"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cma-bordeaux text-white px-4 h-10 text-sm font-semibold hover:bg-cma-bordeaux/90"
+                >
+                  <LifeBuoy size={16} aria-hidden="true" />
+                  Contacter le support
+                </Link>
+                <Link
+                  href="/feed"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-gray-200 px-4 h-10 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Retour au feed
+                </Link>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     );
@@ -164,6 +209,13 @@ export default async function PromoPage() {
     unreadDmCount = count ?? 0;
   }
 
+  // Fetch Unread Notifications
+  const { count: unreadNotifCount } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", user.id)
+    .eq("is_read", false);
+
   const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
   const isAdmin = profile.role === "admin";
   const isPromoLeader = promoData?.leader_id === user.id;
@@ -179,9 +231,19 @@ export default async function PromoPage() {
           <span className="text-sm font-semibold text-gray-900 hidden sm:block">Coin Promo</span>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" disabled className="relative p-2 rounded-lg text-gray-300 cursor-not-allowed">
+          <Link
+            href="/notifications"
+            className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-cma-bordeaux"
+            title="Notifications"
+            aria-label="Notifications"
+          >
             <Bell size={18} />
-          </button>
+            {(unreadNotifCount ?? 0) > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
+                {(unreadNotifCount ?? 0) > 9 ? "9+" : unreadNotifCount}
+              </span>
+            )}
+          </Link>
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
       </header>
@@ -202,7 +264,7 @@ export default async function PromoPage() {
               { href: "/mentorship", icon: Handshake, label: "Mentorat", implemented: true },
               { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: true },
               { href: "/messages", icon: MessageSquare, label: "Messages", implemented: !isAdmin, badge: unreadDmCount > 0 ? unreadDmCount : undefined },
-              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: false },
+              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: true },
             ].map((item) => (
               <Link key={item.href} href={item.href} className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${item.active ? "bg-cma-bordeaux/5 text-cma-bordeaux font-medium" : "text-gray-500 hover:bg-gray-50"}`}>
                 <span className="flex items-center gap-3">
@@ -234,10 +296,19 @@ export default async function PromoPage() {
             />
           )}
           
-          <ElectionWidget 
-            election={activeElection as PromoElection} 
-            hasLeader={!!promoData?.leader_id} 
+          <ElectionWidget
+            election={activeElection as PromoElection}
+            hasLeader={!!promoData?.leader_id}
           />
+
+          <div className="-mt-2 mb-4 flex justify-end">
+            <Link
+              href="/promo/elections"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-cma-bordeaux hover:underline"
+            >
+              Voir l&apos;historique des élections →
+            </Link>
+          </div>
 
           <PostFeed
             initialPosts={posts}
@@ -274,7 +345,12 @@ export default async function PromoPage() {
           <span className="text-[10px]">Messages</span>
           {unreadDmCount > 0 && <span className="absolute -top-1 right-0 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">{unreadDmCount}</span>}
         </Link>
-        <MobileProfileMenu initials={initials} username={profile.username} themePreference={profile.theme_preference ?? "system"} />
+        <MobileProfileMenu
+          initials={initials}
+          username={profile.username}
+          themePreference={profile.theme_preference ?? "system"}
+          unreadNotifications={unreadNotifCount ?? 0}
+        />
       </nav>
       <div className="lg:hidden h-14" />
     </div>

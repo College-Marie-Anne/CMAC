@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Settings, X } from "lucide-react";
+import { User, Settings, X, Bell } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -11,9 +11,15 @@ interface MobileProfileMenuProps {
   initials: string;
   username: string;
   themePreference: string;
+  unreadNotifications?: number;
 }
 
-export function MobileProfileMenu({ initials, username, themePreference }: MobileProfileMenuProps) {
+export function MobileProfileMenu({
+  initials,
+  username,
+  themePreference,
+  unreadNotifications = 0,
+}: MobileProfileMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -21,13 +27,18 @@ export function MobileProfileMenu({ initials, username, themePreference }: Mobil
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex flex-col items-center gap-0.5 text-gray-400"
+        className="relative flex flex-col items-center gap-0.5 text-gray-400"
         aria-label="Mon profil"
       >
         <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-[8px] text-white font-semibold">
           {initials}
         </div>
         <span className="text-[10px]">Profil</span>
+        {unreadNotifications > 0 && (
+          <span className="absolute -top-1 right-0 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
+            {unreadNotifications > 9 ? "9+" : unreadNotifications}
+          </span>
+        )}
       </button>
 
       <AnimatePresence>
@@ -91,6 +102,21 @@ export function MobileProfileMenu({ initials, username, themePreference }: Mobil
                   >
                     <Settings size={18} />
                     Paramètres
+                  </Link>
+                  <Link
+                    href="/notifications"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Bell size={18} />
+                      Notifications
+                    </span>
+                    {unreadNotifications > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-cma-bordeaux text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                      </span>
+                    )}
                   </Link>
                 </div>
 

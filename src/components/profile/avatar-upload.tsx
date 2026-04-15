@@ -5,6 +5,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { updateAvatarAction } from "@/actions/profile";
 import { createClient } from "@/utils/supabase/client";
+import { compressImage } from "@/lib/image-compress";
 
 interface AvatarUploadProps {
   firstName: string;
@@ -38,12 +39,26 @@ export function AvatarUpload({ firstName, lastName, currentUrl, userId }: Avatar
 
     startTransition(async () => {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() ?? "jpg";
+
+      // Compression côté client à 400px max, forcé en JPEG (spec §804).
+      // Réduit drastiquement le poids des PNG d'avatar.
+      let toUpload: File;
+      try {
+        toUpload = await compressImage(file, {
+          maxWidth: 400,
+          maxHeight: 400,
+          preferJpeg: true,
+        });
+      } catch {
+        toUpload = file;
+      }
+
+      const ext = (toUpload.name.split(".").pop() ?? "jpg").toLowerCase();
       const path = `${userId}/avatar.${ext}`;
 
       const { error: uploadErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true });
+        .upload(path, toUpload, { upsert: true });
 
       if (uploadErr) {
         setError("Erreur d'upload");

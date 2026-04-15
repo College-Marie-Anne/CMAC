@@ -78,16 +78,23 @@ export default async function ElectionPage() {
     <div className="min-h-screen bg-cma-gris pb-20">
       {/* Top Navigation */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center h-14 px-4 gap-4">
-        <Link 
-          href="/promo" 
+        <Link
+          href="/promo"
           className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
+          aria-label="Retour au Coin Promo"
         >
           <ChevronLeft size={20} />
         </Link>
-        <div className="flex flex-col">
+        <div className="flex flex-col flex-1 min-w-0">
           <h1 className="text-sm font-bold text-gray-900 leading-tight">Élections de Promotion</h1>
           <p className="text-[10px] font-bold text-cma-bordeaux uppercase tracking-wider">{statusLabel}</p>
         </div>
+        <Link
+          href="/promo/elections"
+          className="text-xs font-medium text-cma-bordeaux hover:underline shrink-0"
+        >
+          Historique
+        </Link>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">

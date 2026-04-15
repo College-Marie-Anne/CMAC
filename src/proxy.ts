@@ -2,6 +2,20 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
+/**
+ * Proxy Next.js 16 (anciennement middleware).
+ *
+ * Responsabilités :
+ *  1. Rafraîchir le token Supabase Auth sur chaque requête (SSR).
+ *  2. Mode maintenance global via `NEXT_PUBLIC_MAINTENANCE_MODE=true` (spec §1512).
+ *  3. Auth guard : les routes protégées redirigent vers `/login` si non authentifié.
+ *  4. Routage par statut de profil : pending → /pending, suspended/deactivated → logout.
+ *  5. Force change password : must_change_password → /auth/change-password.
+ *
+ * Contrainte : pas de requête DB lourde (exécuté sur chaque navigation).
+ * On se limite à `auth.getUser()` + un SELECT léger sur `profiles`.
+ */
+
 // Routes qui nécessitent une session active
 const protectedRoutes = [
   "/feed",
@@ -17,13 +31,28 @@ const protectedRoutes = [
   "/admin",
 ];
 
-// Routes réservées aux non-connectées (redirigent vers /feed si déjà connectée)
-const authRoutes = ["/", "/login", "/register", "/forgot-password", "/pending"];
-
-// Routes accessibles par les authentifiées même avec must_change_password
-const changePasswordRoute = "/auth/change-password";
+// Routes publiques côté non-connectée (redirigent vers /feed si status=active)
+const publicOnlyRoutes = ["/", "/login", "/register", "/forgot-password"];
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 1. Mode maintenance — bloque tout sauf /maintenance
+  const maintenanceMode =
+    process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
+  if (maintenanceMode && pathname !== "/maintenance") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/maintenance";
+    return NextResponse.redirect(url);
+  }
+
+  // Si on accède à /maintenance mais que le mode est désactivé, renvoyer vers /login
+  if (!maintenanceMode && pathname === "/maintenance") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
@@ -43,46 +72,96 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // Rafraîchir la session
+  // 2. Rafraîchir la session — OBLIGATOIRE pour @supabase/ssr
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
-  // Route protégée sans session → redirection vers login
-  // Match exact ou avec sous-route (ex: /admin → /admin/users mais PAS /admin_api)
   const isProtected = protectedRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
+  const isPublicOnly =
+    publicOnlyRoutes.some((route) => pathname === route) ||
+    pathname.startsWith("/register/");
+
+  // 3. Route protégée sans session → /login
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    if (pathname !== "/") {
+      url.searchParams.set("redirect", pathname);
+    }
     return NextResponse.redirect(url);
   }
 
-  // Route auth avec session active → redirection vers feed
-  // Match exact pour /login, /register, etc. + prefix pour /register/invite/*
-  const isAuthRoute =
-    authRoutes.some((route) => pathname === route) ||
-    pathname.startsWith("/register/");
-  if (isAuthRoute && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
+  // 4. Non authentifié et pas sur route protégée → laisser passer
+  if (!user) {
+    return supabaseResponse;
   }
 
-  // Vérifier must_change_password pour les utilisatrices connectées
-  if (user && isProtected && pathname !== changePasswordRoute) {
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("must_change_password")
-      .eq("id", user.id)
-      .maybeSingle();
+  // 5. Authentifié — lire le profil (statut + flags)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("status, must_change_password")
+    .eq("id", user.id)
+    .maybeSingle();
 
-    if (!profileErr && profile?.must_change_password) {
+  // Cas edge : auth.user sans ligne profiles → logout défensif
+  if (!profile) {
+    if (!isPublicOnly && pathname !== "/pending") {
+      await supabase.auth.signOut();
       const url = request.nextUrl.clone();
-      url.pathname = changePasswordRoute;
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
+  // 6. must_change_password — force la page de changement avant toute autre
+  const onPasswordChangePage = pathname === "/auth/change-password";
+  const onAuthSubroute = pathname.startsWith("/auth/");
+  if (
+    profile.must_change_password &&
+    !onPasswordChangePage &&
+    !onAuthSubroute
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/change-password";
+    return NextResponse.redirect(url);
+  }
+
+  // 7. Routage par statut
+  if (profile.status === "pending") {
+    // Les pending ne peuvent voir que /pending, /auth/*, /legal/*
+    const allowedForPending =
+      pathname === "/pending" ||
+      onAuthSubroute ||
+      pathname.startsWith("/legal/");
+    if (!allowedForPending) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/pending";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
+  if (profile.status === "suspended" || profile.status === "deactivated") {
+    // Comptes bloqués → logout + login avec message
+    await supabase.auth.signOut();
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set(
+      "error",
+      profile.status === "suspended" ? "suspended" : "deactivated"
+    );
+    return NextResponse.redirect(url);
+  }
+
+  if (profile.status === "active") {
+    // Compte actif sur une route public-only → /feed
+    if (isPublicOnly || pathname === "/pending") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/feed";
       return NextResponse.redirect(url);
     }
   }
@@ -92,6 +171,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|monitoring|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff2?|ttf|eot|txt|xml|json)$).*)",
   ],
 };

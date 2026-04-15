@@ -146,7 +146,7 @@ export async function pinPostAction(
 
     const { data: post, error: fetchErr } = await supabase
       .from("forum_posts")
-      .select("is_pinned, promo_id")
+      .select("is_pinned, promo_id, author_id")
       .eq("id", postId)
       .single();
 
@@ -162,7 +162,7 @@ export async function pinPostAction(
          .select("leader_id")
          .eq("id", post.promo_id)
          .single();
-         
+
        if (promo?.leader_id === profile.id) {
          isLeader = true;
        }
@@ -172,15 +172,32 @@ export async function pinPostAction(
       return { success: false, error: "Non autorisé à épingler ce post" };
     }
 
+    const willPin = !post.is_pinned;
+
     const { error } = await supabase
       .from("forum_posts")
-      .update({ is_pinned: !post.is_pinned })
+      .update({ is_pinned: willPin })
       .eq("id", postId);
 
     if (error) return { success: false, error: error.message };
 
     // Audit log auto via trigger trg_audit_forum_posts_update
     // (action 'pin_post' ou 'unpin_post' détectée via toggle de is_pinned).
+
+    // Notification `post_pinned` à l'auteur (spec §1255) — uniquement quand on
+    // épingle (pas au désépinglage), et pas si l'auteur s'épingle lui-même.
+    // Type non-opt-out (spec §488) → on passe `null` pour le préférence-field.
+    // Passe par la RPC SECURITY DEFINER `notify_user` car la table notifications
+    // n'a aucune RLS INSERT (migration 023).
+    if (willPin && post.author_id && post.author_id !== profile.id) {
+      await supabase.rpc("notify_user", {
+        p_recipient: post.author_id,
+        p_type: "post_pinned",
+        p_reference_id: postId,
+        p_content: "Votre post a ete epingle.",
+        p_preference_field: null,
+      });
+    }
 
     revalidatePath("/feed");
     revalidatePath(`/feed/${postId}`);

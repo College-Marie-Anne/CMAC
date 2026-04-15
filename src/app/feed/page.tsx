@@ -69,6 +69,11 @@ export default async function FeedPage({
 
   const isAdmin = profile.role === "admin";
   const initials = `${(profile.first_name || "?")[0]}${(profile.last_name || "?")[0]}`;
+  const { count: unreadNotifCount } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", user.id)
+    .eq("is_read", false);
 
   // ─── Fetch forum data ───
   // First fetch tags to identify system tags (excluded from feed)
@@ -170,15 +175,19 @@ export default async function FeedPage({
           <FeedSearch />
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled
-            className="relative p-2 rounded-lg text-gray-300 cursor-not-allowed"
-            title="Notifications — Bientôt disponible"
-            aria-label="Notifications (bientôt disponible)"
+          <Link
+            href="/notifications"
+            className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-cma-bordeaux"
+            title="Notifications"
+            aria-label="Notifications"
           >
             <Bell size={18} />
-          </button>
+            {(unreadNotifCount ?? 0) > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
+                {(unreadNotifCount ?? 0) > 9 ? "9+" : unreadNotifCount}
+              </span>
+            )}
+          </Link>
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
       </header>
@@ -204,7 +213,7 @@ export default async function FeedPage({
               { href: "/mentorship", icon: Handshake, label: "Mentorat", implemented: true },
               { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: true },
               { href: "/messages", icon: MessageSquare, label: "Messages", implemented: !isAdmin, badge: unreadDmCount > 0 ? unreadDmCount : undefined },
-              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: false },
+              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: true },
             ].map((item) => {
               if (!item.implemented) {
                 return (
@@ -302,7 +311,12 @@ export default async function FeedPage({
             )}
           </Link>
         )}
-        <MobileProfileMenu initials={initials} username={profile.username} themePreference={profile.theme_preference ?? "system"} />
+        <MobileProfileMenu
+          initials={initials}
+          username={profile.username}
+          themePreference={profile.theme_preference ?? "system"}
+          unreadNotifications={unreadNotifCount ?? 0}
+        />
       </nav>
       <div className="lg:hidden h-14" />
     </div>

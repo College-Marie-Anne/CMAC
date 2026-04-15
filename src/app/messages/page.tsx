@@ -45,12 +45,16 @@ export default async function MessagesPage() {
     const convIds = rawConvs.map((c) => c.id);
     const { data: lastMessages } = await supabase
       .from("direct_messages")
-      .select("conversation_id, content")
+      .select("conversation_id, content, sender_id, is_deleted_by_sender, is_deleted_by_receiver")
       .in("conversation_id", convIds)
       .order("created_at", { ascending: false });
 
     const lastMsgMap = new Map<string, string>();
     for (const msg of lastMessages ?? []) {
+      const hiddenForCurrentUser =
+        (msg.sender_id === user.id && msg.is_deleted_by_sender) ||
+        (msg.sender_id !== user.id && msg.is_deleted_by_receiver);
+      if (hiddenForCurrentUser) continue;
       if (!lastMsgMap.has(msg.conversation_id)) {
         lastMsgMap.set(msg.conversation_id, msg.content);
       }
@@ -61,6 +65,7 @@ export default async function MessagesPage() {
       .select("conversation_id")
       .in("conversation_id", convIds)
       .neq("sender_id", user.id)
+      .eq("is_deleted_by_receiver", false)
       .eq("is_read", false);
 
     const unreadMap = new Map<string, number>();

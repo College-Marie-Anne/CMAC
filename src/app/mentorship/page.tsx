@@ -56,6 +56,11 @@ export default async function MentorshipPage() {
   }
 
   const initials = `${(profile.first_name || "?")[0]}${(profile.last_name || "?")[0]}`;
+  const { count: unreadNotifCount } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", user.id)
+    .eq("is_read", false);
 
   // Fetch unread DM count
   let unreadDmCount = 0;
@@ -84,11 +89,12 @@ export default async function MentorshipPage() {
       mentor:mentor_id(id, first_name, last_name, username, avatar_url, role, class, country),
       mentee:mentee_id(id, first_name, last_name, username, avatar_url, role, class, country)
     `)
-    .eq("status", "active")
     .or(`mentor_id.eq.${user.id},mentee_id.eq.${user.id}`)
     .order("started_at", { ascending: false });
 
-  const activeSessions = (rawSessions || []) as unknown as MentorshipSession[];
+  const allSessions = (rawSessions || []) as unknown as MentorshipSession[];
+  const activeSessions = allSessions.filter((s) => s.status === "active");
+  const pastSessions = allSessions.filter((s) => s.status !== "active");
 
   let pendingRequests: MentorshipRequest[] = [];
   let suggestedMentors: SuggestedMentor[] = [];
@@ -124,12 +130,12 @@ export default async function MentorshipPage() {
     // Mentee: Get their desired study fields
     const { data: desired } = await supabase
       .from("desired_study_fields")
-      .select("study_field")
+      .select("field_name")
       .eq("profile_id", user.id);
-    studyFields = desired?.map(d => d.study_field).filter(Boolean) || [];
+    studyFields = desired?.map((d) => d.field_name).filter(Boolean) || [];
 
     // Fetch outoing requests
-    const { data: outoing } = await supabase
+    const { data: outgoing } = await supabase
       .from("mentorship_requests")
       .select(`
         id, mentee_id, mentor_id, message, study_field, status, created_at, updated_at,
@@ -138,7 +144,7 @@ export default async function MentorshipPage() {
       .eq("mentee_id", user.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
-    pendingRequests = (outoing || []) as unknown as MentorshipRequest[];
+    pendingRequests = (outgoing || []) as unknown as MentorshipRequest[];
 
     // Fetch suggestions if they have desired fields
     if (studyFields.length > 0) {
@@ -204,15 +210,19 @@ export default async function MentorshipPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled
-            className="relative p-2 rounded-lg text-gray-300 cursor-not-allowed"
-            title="Notifications — Bientôt disponible"
-            aria-label="Notifications (bientôt disponible)"
+          <Link
+            href="/notifications"
+            className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-cma-bordeaux"
+            title="Notifications"
+            aria-label="Notifications"
           >
             <Bell size={18} />
-          </button>
+            {(unreadNotifCount ?? 0) > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
+                {(unreadNotifCount ?? 0) > 9 ? "9+" : unreadNotifCount}
+              </span>
+            )}
+          </Link>
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
       </header>
@@ -229,11 +239,11 @@ export default async function MentorshipPage() {
             {[
               { href: "/feed", icon: Users, label: "Fil d'actualité", implemented: true },
               { href: "/directory", icon: Search, label: "Annuaire", implemented: true },
-              { href: "/promo", icon: GraduationCap, label: "Coin Promo", implemented: false },
+              { href: "/promo", icon: GraduationCap, label: "Coin Promo", implemented: true },
               { href: "/mentorship", icon: Handshake, label: "Mentorat", active: true, implemented: true },
               { href: "/opportunities", icon: Award, label: "Bourses & Opportunités", implemented: true },
               { href: "/messages", icon: MessageSquare, label: "Messages", implemented: !isAdmin, badge: unreadDmCount > 0 ? unreadDmCount : undefined },
-              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: false },
+              { href: "/support", icon: HeadphonesIcon, label: "Support", implemented: true },
             ].map((item) => {
               if (!item.implemented) {
                 return (
@@ -283,6 +293,7 @@ export default async function MentorshipPage() {
               currentUserId={user.id} 
               activeSessions={activeSessions} 
               pendingRequests={pendingRequests} 
+              pastSessions={pastSessions}
             />
           ) : (
             <MentorshipStudentDashboard 
@@ -291,6 +302,7 @@ export default async function MentorshipPage() {
               pendingRequests={pendingRequests} 
               suggestedMentors={suggestedMentors} 
               studyFields={studyFields}
+              pastSessions={pastSessions}
             />
           )}
         </main>
@@ -319,7 +331,12 @@ export default async function MentorshipPage() {
             </span>
           )}
         </Link>
-        <MobileProfileMenu initials={initials} username={profile.username} themePreference={profile.theme_preference ?? "system"} />
+        <MobileProfileMenu
+          initials={initials}
+          username={profile.username}
+          themePreference={profile.theme_preference ?? "system"}
+          unreadNotifications={unreadNotifCount ?? 0}
+        />
       </nav>
       <div className="lg:hidden h-14" />
     </div>

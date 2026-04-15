@@ -12,6 +12,7 @@ import { RequestDialog } from "./request-dialog";
 interface MentorshipDashboardStudentProps {
   currentUserId: string;
   activeSessions: MentorshipSession[];
+  pastSessions: MentorshipSession[];
   pendingRequests: MentorshipRequest[];
   suggestedMentors: SuggestedMentor[];
   studyFields: string[];
@@ -20,6 +21,7 @@ interface MentorshipDashboardStudentProps {
 export function MentorshipStudentDashboard({
   currentUserId,
   activeSessions,
+  pastSessions,
   pendingRequests,
   suggestedMentors,
   studyFields
@@ -74,6 +76,19 @@ export function MentorshipStudentDashboard({
           <h3 className="text-sm font-bold text-gray-900 mb-4 px-1">En cours ({activeSessions.length})</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeSessions.map((session) => (
+              <ActiveSessionCard key={session.id} session={session} currentUserId={currentUserId} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pastSessions.length > 0 && (
+        <section>
+          <h3 className="text-sm font-bold text-gray-900 mb-4 px-1">
+            Historique ({pastSessions.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pastSessions.map((session) => (
               <ActiveSessionCard key={session.id} session={session} currentUserId={currentUserId} />
             ))}
           </div>

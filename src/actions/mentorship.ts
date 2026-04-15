@@ -72,12 +72,10 @@ export async function sendMentorshipRequestAction(formData: FormData) {
     // Create notification if target is specific mentor
     if (validated.data.mentor_id) {
       await supabase.from("notifications").insert({
-        user_id: validated.data.mentor_id,
+        recipient_id: validated.data.mentor_id,
         type: "mentorship",
-        title: "Nouvelle demande de mentorat",
-        content: "Une élève souhaite être mentorée par vous.",
-        target_type: "mentorship_request",
-        target_id: request.id,
+        content: "Une eleve souhaite etre mentoree par vous.",
+        reference_id: request.id,
       });
     }
 
@@ -114,12 +112,11 @@ export async function acceptMentorshipRequestAction(requestId: string) {
     const { data: reqData } = await supabase.from("mentorship_requests").select("mentee_id").eq("id", requestId).single();
     if (reqData?.mentee_id) {
       await supabase.from("notifications").insert({
-        user_id: reqData.mentee_id,
+        recipient_id: reqData.mentee_id,
         type: "mentorship",
-        title: "Demande de mentorat acceptée !",
-        content: "Une alumni a accepté votre demande. Vous pouvez maintenant échanger avec elle via la messagerie.",
-        target_type: "mentorship_session",
-        target_id: sessionId,
+        content:
+          "Une alumni a accepte votre demande. Vous pouvez maintenant echanger via la messagerie.",
+        reference_id: sessionId,
       });
     }
 
@@ -140,9 +137,17 @@ export async function declineMentorshipRequestAction(requestId: string) {
     if (!user) return { success: false, error: "Non autorisé" };
 
     // Only mentor_id = user or open request if user is alumni
-    const { data: reqData, error: reqErr } = await supabase.from("mentorship_requests").select("mentor_id, status").eq("id", requestId).single();
+    const { data: reqData, error: reqErr } = await supabase
+      .from("mentorship_requests")
+      .select("mentor_id, mentee_id, status")
+      .eq("id", requestId)
+      .single();
     if (reqErr || !reqData) return { success: false, error: "Requête introuvable" };
     if (reqData.status !== "pending") return { success: false, error: "Requête déjà traitée" };
+
+    if (reqData.mentor_id && reqData.mentor_id !== user.id) {
+      return { success: false, error: "Operation non autorisee" };
+    }
 
     const { error: updErr } = await supabase
       .from("mentorship_requests")
@@ -152,6 +157,15 @@ export async function declineMentorshipRequestAction(requestId: string) {
     if (updErr) {
       console.error("Mentorship decline error:", updErr);
       return { success: false, error: "Erreur lors du déclin" };
+    }
+
+    if (reqData.mentee_id) {
+      await supabase.from("notifications").insert({
+        recipient_id: reqData.mentee_id,
+        type: "mentorship",
+        content: "Votre demande de mentorat a ete declinee.",
+        reference_id: requestId,
+      });
     }
 
     revalidatePath("/mentorship");
@@ -189,12 +203,10 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
     // Determine target to notify
     const notifyId = session.mentor_id === user.id ? session.mentee_id : session.mentor_id;
     await supabase.from("notifications").insert({
-      user_id: notifyId,
+      recipient_id: notifyId,
       type: "mentorship_completed",
-      title: "Mentorat terminé",
-      content: "Une de vos sessions de mentorat a été marquée comme terminée.",
-      target_type: "mentorship_session",
-      target_id: sessionId,
+      content: "Une de vos sessions de mentorat a ete marquee comme terminee.",
+      reference_id: sessionId,
     });
 
     revalidatePath("/mentorship");

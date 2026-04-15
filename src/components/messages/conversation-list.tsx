@@ -97,11 +97,12 @@ export function ConversationList({
   // Load more conversations
   const loadMore = () => {
     if (!hasMore || isLoadingMore) return;
-    const lastConv = conversations[conversations.length - 1];
-    if (!lastConv) return;
+    if (conversations.length === 0) return;
 
     startLoadMore(async () => {
       const supabase = createClient();
+      const from = conversations.length;
+      const to = from + 19;
       const { data: convs } = await supabase
         .from("conversations")
         .select(`
@@ -110,8 +111,7 @@ export function ConversationList({
         `)
         .or(`participant_1.eq.${currentUserId},participant_2.eq.${currentUserId}`)
         .order("last_message_at", { ascending: false, nullsFirst: false })
-        .lt("last_message_at", lastConv.last_message_at ?? "")
-        .limit(20);
+        .range(from, to);
 
       if (!convs || convs.length === 0) {
         setHasMore(false);
@@ -120,7 +120,11 @@ export function ConversationList({
 
       // Enrich with participant profiles + unread counts
       const enriched = await enrichConversations(supabase, convs, currentUserId);
-      setConversations((prev) => [...prev, ...enriched]);
+      setConversations((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        const deduped = enriched.filter((c) => !seen.has(c.id));
+        return [...prev, ...deduped];
+      });
       setHasMore(convs.length === 20);
     });
   };
@@ -302,12 +306,16 @@ async function enrichConversations(
   const convIds = convs.map((c) => c.id);
   const { data: lastMessages } = await supabase
     .from("direct_messages")
-    .select("conversation_id, content, created_at")
+    .select("conversation_id, content, created_at, sender_id, is_deleted_by_sender, is_deleted_by_receiver")
     .in("conversation_id", convIds)
     .order("created_at", { ascending: false });
 
   const lastMsgMap = new Map<string, { content: string }>();
   for (const msg of lastMessages ?? []) {
+    const hiddenForCurrentUser =
+      (msg.sender_id === currentUserId && msg.is_deleted_by_sender) ||
+      (msg.sender_id !== currentUserId && msg.is_deleted_by_receiver);
+    if (hiddenForCurrentUser) continue;
     if (!lastMsgMap.has(msg.conversation_id)) {
       lastMsgMap.set(msg.conversation_id, { content: msg.content });
     }
@@ -319,6 +327,7 @@ async function enrichConversations(
     .select("conversation_id")
     .in("conversation_id", convIds)
     .neq("sender_id", currentUserId)
+    .eq("is_deleted_by_receiver", false)
     .eq("is_read", false);
 
   const unreadMap = new Map<string, number>();
