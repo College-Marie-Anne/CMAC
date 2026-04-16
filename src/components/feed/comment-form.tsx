@@ -57,7 +57,8 @@ export function CommentForm({
             placeholder={placeholder}
             rows={2}
             disabled={isPending}
-            className="resize-none rounded-xl text-sm border-gray-200 focus:border-cma-bordeaux pr-12"
+            className="resize-none rounded-xl text-sm border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-cma-bordeaux pr-12"
+            style={{ colorScheme: "light" }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -65,7 +66,7 @@ export function CommentForm({
               }
             }}
           />
-          <span className="absolute bottom-2 right-3 text-[9px] text-gray-300">
+          <span className="absolute bottom-2 right-3 text-[9px] text-gray-300 pointer-events-none">
             {content.length}/500
           </span>
         </div>

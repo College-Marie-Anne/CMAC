@@ -59,6 +59,11 @@
 }
 
 :root {
+  /* color-scheme: light déclare au navigateur que l'app utilise un thème
+     clair par défaut. Sans ça, Android (et iOS Safari) en dark mode système
+     re-stylent les inputs/textarea/select natifs en sombre — texte invisible
+     sur fond blanc forcé par notre design. Le `.dark` plus bas l'override. */
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -94,6 +99,9 @@
 }
 
 .dark {
+  /* Symétrique du :root — informe le navigateur du thème pour qu'il
+     re-stylise les contrôles natifs en sombre cohérent avec notre UI. */
+  color-scheme: dark;
   --background: #0D0D0D;
   --foreground: #F5F5F5;
   --card: #1A1A1A;

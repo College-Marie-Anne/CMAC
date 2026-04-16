@@ -211,7 +211,10 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
                 </Popover>
               )}
 
-              {/* Content */}
+              {/* Content
+                  text-gray-900 + bg-white explicites + style colorScheme:"light"
+                  → empêche Android de re-styler le textarea en dark mode système
+                  (qui rendait le texte invisible — texte sombre sur fond sombre). */}
               <div className="relative">
                 <Textarea
                   value={content}
@@ -219,9 +222,10 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
                   placeholder="Quoi de neuf ?"
                   rows={5}
                   disabled={isPending}
-                  className="resize-none rounded-xl border-gray-200 focus:border-cma-bordeaux"
+                  className="resize-none rounded-xl border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-cma-bordeaux"
+                  style={{ colorScheme: "light" }}
                 />
-                <span className="absolute bottom-2 right-3 text-[10px] text-gray-300">
+                <span className="absolute bottom-2 right-3 text-[10px] text-gray-300 pointer-events-none">
                   {content.length}/2000
                 </span>
               </div>
