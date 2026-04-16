@@ -22,11 +22,22 @@ export function PromoProfileHeader({ promo, memberCount }: PromoProfileHeaderPro
       <div className="p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-cma-bordeaux/5 flex items-center justify-center text-cma-bordeaux shrink-0">
-              <GraduationCap size={32} />
+            <div className="w-16 h-16 rounded-2xl bg-cma-bordeaux/5 flex items-center justify-center text-cma-bordeaux shrink-0 overflow-hidden relative">
+              {promo.emblem_url ? (
+                <Image
+                  src={promo.emblem_url}
+                  alt={`Emblème ${promo.name}`}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                />
+              ) : (
+                <GraduationCap size={32} />
+              )}
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{yearsStr}</h1>
+              <h1 className="text-xl font-bold text-gray-900">{promo.name}</h1>
+              <p className="text-xs text-gray-500 mt-0.5">{yearsStr}</p>
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
                 <span className="flex items-center gap-1.5">
                   <Users size={14} className="text-gray-400" />

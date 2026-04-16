@@ -179,7 +179,14 @@
       "Bash(echo \"exit find=$?\")",
       "Bash(grep -n \"rounded-2xl\\\\|return\\\\|min-h-screen\" C:/Projets/CMAC/src/app/profile/[username]/page.tsx)",
       "Bash(sed -n '11,23p' C:/Projets/CMAC/src/app/opportunities/page.tsx)",
-      "Bash(sed -n '5,17p' C:/Projets/CMAC/src/app/promo/page.tsx)"
+      "Bash(sed -n '5,17p' C:/Projets/CMAC/src/app/promo/page.tsx)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); lints=json.loads\\(data[0]['text']\\)['result']['lints']; types={}; [types.setdefault\\(l['name'], []\\).append\\(l['detail'][:150]\\) for l in lints]; [print\\(f'=== {k} \\({len\\(v\\)}\\) ==='\\) or [print\\('  -', x\\) for x in v[:3]] for k,v in types.items\\(\\)]\")",
+      "Bash(ls C:/Projets/CMAC/src/app/messages/[conversationId] C:/Projets/CMAC/src/app/feed/[postId] C:/Projets/CMAC/src/app/profile/[username] C:/Projets/CMAC/src/app/mentorship/[sessionId] C:/Projets/CMAC/src/app/admin/users/[id] C:/Projets/CMAC/src/app/admin/users/create C:/Projets/CMAC/src/app/admin/support/[ticketId] C:/Projets/CMAC/src/app/support/[ticketId] C:/Projets/CMAC/src/app/promo/election C:/Projets/CMAC/src/app/promo/elections)",
+      "Bash(wc -l C:/Projets/CMAC/src/components/auth/*.tsx C:/Projets/CMAC/src/components/admin/*.tsx C:/Projets/CMAC/src/components/feed/*.tsx)",
+      "Bash(wc -l C:/Projets/CMAC/src/components/messages/*.tsx C:/Projets/CMAC/src/components/mentorship/*.tsx C:/Projets/CMAC/src/components/profile/*.tsx C:/Projets/CMAC/src/components/promo/*.tsx C:/Projets/CMAC/src/components/directory/*.tsx C:/Projets/CMAC/src/components/moderation/*.tsx C:/Projets/CMAC/src/components/notifications/*.tsx C:/Projets/CMAC/src/components/settings/*.tsx C:/Projets/CMAC/src/components/support/*.tsx C:/Projets/CMAC/src/components/pwa/*.tsx C:/Projets/CMAC/src/components/ui/*.tsx)",
+      "Bash(ls C:/Projets/CMAC/src/app/profile/[username])",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code} redirect=%{redirect_url}\\\\n\" http://localhost:3000/promo -I)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:3000/promo)"
     ]
   }
 }

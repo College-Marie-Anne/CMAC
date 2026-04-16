@@ -142,7 +142,7 @@ export default async function PromoPage() {
     supabase
       .from("promotions")
       .select(
-        `id, start_date, end_date, leader_id, created_at,
+        `id, name, start_date, end_date, emblem_url, leader_id, created_at,
          leader:leader_id(id, first_name, last_name, username, avatar_url)`
       )
       .eq("id", profile.promo_id)
