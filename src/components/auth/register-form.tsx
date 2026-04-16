@@ -877,7 +877,15 @@ function Step2AlumniForm({
   const handleSelectOpenChange = (open: boolean) => {
     if (open) {
       setPromoSearch("");
-      setTimeout(() => promoSearchRef.current?.focus(), 0);
+      // Auto-focus input de recherche sur desktop uniquement.
+      // Sur mobile (coarse pointer), force-focus déclenche le clavier virtuel
+      // qui fait croire à Radix Select qu'il a perdu le focus → se ferme.
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(pointer: fine)").matches
+      ) {
+        setTimeout(() => promoSearchRef.current?.focus(), 0);
+      }
     }
   };
 
@@ -920,8 +928,12 @@ function Step2AlumniForm({
                   ref={promoSearchRef}
                   value={promoSearch}
                   onChange={(e) => setPromoSearch(e.target.value)}
+                  // Empêche Radix Select de traiter le tap sur l'input
+                  // comme un "click outside" et de fermer le popup sur mobile
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
-                    // Empêche Radix de voler le focus (espace, flèches navigue items)
                     if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation();
                   }}
                   placeholder="Rechercher une promotion"
@@ -1109,7 +1121,15 @@ function Step2S4Form({
   const handleSelectOpenChange = (open: boolean) => {
     if (open) {
       setPromoSearch("");
-      setTimeout(() => promoSearchRef.current?.focus(), 0);
+      // Auto-focus input de recherche sur desktop uniquement.
+      // Sur mobile (coarse pointer), force-focus déclenche le clavier virtuel
+      // qui fait croire à Radix Select qu'il a perdu le focus → se ferme.
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(pointer: fine)").matches
+      ) {
+        setTimeout(() => promoSearchRef.current?.focus(), 0);
+      }
     }
   };
 
@@ -1137,6 +1157,11 @@ function Step2S4Form({
                 ref={promoSearchRef}
                 value={promoSearch}
                 onChange={(e) => setPromoSearch(e.target.value)}
+                // Empêche Radix Select de traiter le tap sur l'input
+                // comme un "click outside" et de fermer le popup sur mobile
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => { if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation(); }}
                 placeholder="Rechercher une promotion"
                 className="w-full h-9 rounded-xl border border-border bg-background px-3 py-1 text-sm text-popover-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
