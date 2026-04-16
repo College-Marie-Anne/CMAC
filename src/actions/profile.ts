@@ -337,7 +337,13 @@ export async function generateInvitationLinkAction(): Promise<ProfileActionResul
 
     if (error) return { success: false, error: error.message };
 
+    // Revalidation des 2 emplacements où le générateur est affiché :
+    //  - /profile/edit (chemin statique)
+    //  - /profile/[username] (chemin dynamique → on utilise le 2ème argument
+    //    "page" pour invalider toutes les pages matching ce pattern, sans
+    //    avoir à fetch le username spécifique ici).
     revalidatePath("/profile/edit");
+    revalidatePath("/profile/[username]", "page");
     return { success: true, data: link };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -374,7 +380,10 @@ export async function revokeInvitationLinkAction(
 
     if (error) return { success: false, error: error.message };
 
+    // Même double-revalidation que generateInvitationLinkAction : le bouton
+    // peut être cliqué depuis /profile/edit OU depuis /profile/[username].
     revalidatePath("/profile/edit");
+    revalidatePath("/profile/[username]", "page");
     return { success: true };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
