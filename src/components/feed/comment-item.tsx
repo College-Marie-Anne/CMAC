@@ -12,6 +12,7 @@ import { ReportDialog } from "@/components/moderation/report-dialog";
 import { renderContentWithMentions } from "@/lib/mentions";
 import { timeAgo } from "@/lib/time-ago";
 import { editCommentAction, deleteOwnCommentAction } from "@/actions/forum";
+import { deleteCommentAction as deleteCommentAsAdminAction } from "@/actions/admin";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { ForumComment } from "@/lib/types/forum";
@@ -192,7 +193,19 @@ export function CommentItem({
                     {(isAuthor || isAdmin) && (
                       <DeleteConfirmDialog
                         onConfirm={async () => {
-                          const result = await deleteOwnCommentAction(comment.id);
+                          // Router vers la bonne action selon le rôle :
+                          //   - Auteur         → deleteOwnCommentAction filtre
+                          //     author_id=user.id dans l'UPDATE. Parfait pour
+                          //     l'auteur, mais pour un admin qui supprime le
+                          //     comment d'un autre, le filtre ne matche aucune
+                          //     ligne → 0 rows updated, pas d'erreur, rien ne
+                          //     se passe en DB. C'était le bug.
+                          //   - Admin non-auteur → deleteCommentAction (admin.ts)
+                          //     qui s'appuie sur la policy `forum_comments_update_admin`
+                          //     (pas de check author_id) + trace audit + notif.
+                          const result = isAuthor
+                            ? await deleteOwnCommentAction(comment.id)
+                            : await deleteCommentAsAdminAction(comment.id);
                           if (result.success) {
                             setIsLocallyDeleted(true);
                             setShowMenu(false);

@@ -46,10 +46,34 @@ export function SerwistProvider(props: SerwistProviderProps) {
       );
     };
 
+    // Supabase JS utilise navigator.locks pour synchroniser le refresh token
+    // entre plusieurs tabs / iframes. Sur certains navigateurs (Samsung
+    // Internet observé — Sentry issue a646f851, aussi Firefox Android),
+    // quand deux onglets essaient de rafraîchir le token en même temps, le
+    // lock est "stolen" par le plus récent et l'ancien getUser() rejette avec
+    // cette erreur. C'est transitoire et non-fatal : Supabase retente, et
+    // l'auth finit par se stabiliser. Pas de valeur à remonter ça à Sentry.
+    const isSupabaseAuthLockStolen = (reason: unknown): boolean => {
+      const msg =
+        (reason as { message?: string })?.message ??
+        (typeof reason === "string" ? reason : "");
+      return (
+        !!msg &&
+        msg.includes('Lock "') &&
+        msg.includes("was released because another request stole it")
+      );
+    };
+
     const onUnhandled = (e: PromiseRejectionEvent) => {
       if (isSwLoadFailure(e.reason)) {
         console.warn("[sw] registration failed, continuing without PWA:", e.reason);
         e.preventDefault();
+        return;
+      }
+      if (isSupabaseAuthLockStolen(e.reason)) {
+        console.warn("[auth] lock stolen (transient, supabase retries):", e.reason);
+        e.preventDefault();
+        return;
       }
     };
 
