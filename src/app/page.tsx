@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
 import { AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@/components/auth/splash-screen";
 import { LoginForm } from "@/components/auth/login-form";
-import { createClient } from "@/utils/supabase/client";
 
 /**
- * Détermine si le splash doit s'afficher.
+ * Page d'accueil — réservée aux non-connectées.
+ *
+ * Les utilisatrices connectées sont redirigées CÔTÉ SERVEUR par le proxy vers
+ * /feed avant même d'atteindre cette page. Le splash React ne s'affiche donc
+ * que pour les non-connectées, ce qui raccourcit au maximum le splash natif
+ * PWA pour les connectées (qui vont directement sur /feed).
  *
  * En PWA standalone, Android peut garder l'app en mémoire (sessionStorage
- * persiste entre les "lancements"). On utilise localStorage avec un timestamp :
+ * persiste entre les "lancements"). On utilise localStorage avec timestamp :
  * le splash se remontre si la dernière vue date de plus d'1 heure.
  */
 function shouldShowSplash(): boolean {
@@ -35,31 +38,16 @@ function markSplashSeen() {
 }
 
 export default function Home() {
-  const router = useRouter();
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window === "undefined") return false;
     return shouldShowSplash();
   });
   const [ready] = useState(() => typeof window !== "undefined");
-  const [redirecting, setRedirecting] = useState(false);
 
   const handleSplashComplete = () => {
     markSplashSeen();
     setShowSplash(false);
   };
-
-  // Après le splash : si connectée → /feed, sinon → LoginForm
-  useEffect(() => {
-    if (showSplash || !ready) return;
-
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setRedirecting(true);
-        router.replace("/feed");
-      }
-    });
-  }, [showSplash, ready, router]);
 
   if (!ready) return null;
 
@@ -68,7 +56,7 @@ export default function Home() {
       <AnimatePresence mode="wait">
         {showSplash ? (
           <SplashScreen key="splash" onComplete={handleSplashComplete} />
-        ) : redirecting ? null : (
+        ) : (
           <Suspense key="login" fallback={null}>
             <LoginForm />
           </Suspense>

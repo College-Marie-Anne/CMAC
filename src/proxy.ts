@@ -31,10 +31,11 @@ const protectedRoutes = [
   "/admin",
 ];
 
-// Routes publiques côté non-connectée (redirigent vers /feed si status=active).
-// "/" est exclue volontairement : la page d'accueil affiche le splash screen CMA
-// avant de rediriger vers /feed (côté client, après l'animation).
-const publicOnlyRoutes = ["/login", "/register", "/forgot-password"];
+// Routes publiques côté non-connectée : si user connectée, redirect serveur → /feed.
+// "/" en fait partie : pour une user connectée, on va DIRECTEMENT sur /feed
+// (pas de splash React qui prolonge le splash natif PWA). Le splash React
+// reste visible uniquement pour les non-connectées sur /.
+const publicOnlyRoutes = ["/", "/login", "/register", "/forgot-password"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

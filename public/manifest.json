@@ -1,6 +1,6 @@
 {
-  "name": " ",
-  "short_name": " ",
+  "name": "CMA Connect",
+  "short_name": "CMA Connect",
   "description": "Plateforme de réseautage et mentorat du Collège Marie-Anne",
   "start_url": "/",
   "display": "standalone",

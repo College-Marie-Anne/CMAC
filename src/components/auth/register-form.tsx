@@ -26,6 +26,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Option cliquable dans le Popover de promo
+function PromoOption({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-left",
+        "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:outline-none"
+      )}
+    >
+      <span className="truncate">{label}</span>
+      {selected && <Check size={14} className="shrink-0 ml-2 text-cma-bordeaux" aria-hidden="true" />}
+    </button>
+  );
+}
 import Image from "next/image";
 import Link from "next/link";
 import { GoldenParticles } from "@/components/ui/golden-particles-lazy";
@@ -877,14 +909,14 @@ function Step2AlumniForm({
   const handleSelectOpenChange = (open: boolean) => {
     if (open) {
       setPromoSearch("");
-      // Auto-focus input de recherche sur desktop uniquement.
-      // Sur mobile (coarse pointer), force-focus déclenche le clavier virtuel
-      // qui fait croire à Radix Select qu'il a perdu le focus → se ferme.
+      // Auto-focus input de recherche sur desktop uniquement (clavier physique).
+      // Sur mobile, on laisse l'utilisatrice taper l'input manuellement — pas de
+      // keyboard virtuel qui s'ouvre sans raison à l'ouverture du popover.
       if (
         typeof window !== "undefined" &&
         window.matchMedia("(pointer: fine)").matches
       ) {
-        setTimeout(() => promoSearchRef.current?.focus(), 0);
+        setTimeout(() => promoSearchRef.current?.focus(), 50);
       }
     }
   };
@@ -906,49 +938,60 @@ function Step2AlumniForm({
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Promotion</Label>
         {!isNewPromo ? (
-          <Select
-            value={watch("promotion_name")}
-            onOpenChange={handleSelectOpenChange}
-            onValueChange={handlePromotionChange}
-          >
-            <SelectTrigger className={inputClass} style={inputStyle}>
-              <SelectValue placeholder="Sélectionnez votre promotion" />
-            </SelectTrigger>
-            {/* position="popper" : nécessaire car le SelectContent contient du contenu
-                 non-SelectItem (input de recherche, état vide) qui casse le positionnement
-                 "item-aligned" par défaut (popup rendue loin à droite du trigger). */}
-            <SelectContent
-              position="popper"
+          // Combobox (Popover + liste custom) plutôt que Radix Select — le
+          // Select Radix ferme quand on tap l'input de recherche sur mobile
+          // à cause de son focus trap strict. Popover gère ça nativement.
+          <Popover onOpenChange={handleSelectOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  inputClass,
+                  "flex items-center justify-between text-left"
+                )}
+                style={inputStyle}
+              >
+                <span className={watch("promotion_name") ? "" : "text-muted-foreground"}>
+                  {watch("promotion_name") || "Sélectionnez votre promotion"}
+                </span>
+                <ChevronDown size={16} className="opacity-50 shrink-0 ml-2" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
               align="start"
-              sideOffset={4}
-              className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+              className="w-[var(--radix-popover-trigger-width)] max-h-[280px] overflow-y-auto p-0"
             >
               <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border/40">
                 <input
                   ref={promoSearchRef}
                   value={promoSearch}
                   onChange={(e) => setPromoSearch(e.target.value)}
-                  // Empêche Radix Select de traiter le tap sur l'input
-                  // comme un "click outside" et de fermer le popup sur mobile
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation();
-                  }}
                   placeholder="Rechercher une promotion"
                   className="w-full h-9 rounded-xl border border-border bg-background px-3 py-1 text-sm text-popover-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                 />
               </div>
-              {filteredPromotions.map((p) => (
-                <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-              ))}
-              {filteredPromotions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">Aucune promotion trouvée</div>
-              )}
-              <SelectItem key="other" value="__other__">Autre</SelectItem>
-            </SelectContent>
-          </Select>
+              <div className="p-1">
+                {filteredPromotions.map((p) => (
+                  <PromoOption
+                    key={p.id}
+                    label={p.name}
+                    selected={watch("promotion_name") === p.name}
+                    onSelect={() => handlePromotionChange(p.name)}
+                  />
+                ))}
+                {filteredPromotions.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    Aucune promotion trouvée
+                  </div>
+                )}
+                <PromoOption
+                  label="Autre"
+                  selected={false}
+                  onSelect={() => handlePromotionChange("__other__")}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
         ) : (
           <Input
             id="promotion_name_input"
@@ -1121,14 +1164,14 @@ function Step2S4Form({
   const handleSelectOpenChange = (open: boolean) => {
     if (open) {
       setPromoSearch("");
-      // Auto-focus input de recherche sur desktop uniquement.
-      // Sur mobile (coarse pointer), force-focus déclenche le clavier virtuel
-      // qui fait croire à Radix Select qu'il a perdu le focus → se ferme.
+      // Auto-focus input de recherche sur desktop uniquement (clavier physique).
+      // Sur mobile, on laisse l'utilisatrice taper l'input manuellement — pas de
+      // keyboard virtuel qui s'ouvre sans raison à l'ouverture du popover.
       if (
         typeof window !== "undefined" &&
         window.matchMedia("(pointer: fine)").matches
       ) {
-        setTimeout(() => promoSearchRef.current?.focus(), 0);
+        setTimeout(() => promoSearchRef.current?.focus(), 50);
       }
     }
   };
@@ -1144,37 +1187,49 @@ function Step2S4Form({
     <form onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Promotion actuelle</Label>
-        <Select value={watch("promotion_name")} onOpenChange={handleSelectOpenChange} onValueChange={(v) => setValue("promotion_name", v, { shouldValidate: true })}>
-          <SelectTrigger className={inputClass} style={inputStyle}><SelectValue placeholder="Sélectionnez" /></SelectTrigger>
-          <SelectContent
-            position="popper"
+        <Popover onOpenChange={handleSelectOpenChange}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn(inputClass, "flex items-center justify-between text-left")}
+              style={inputStyle}
+            >
+              <span className={watch("promotion_name") ? "" : "text-muted-foreground"}>
+                {watch("promotion_name") || "Sélectionnez"}
+              </span>
+              <ChevronDown size={16} className="opacity-50 shrink-0 ml-2" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
             align="start"
-            sideOffset={4}
-            className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+            className="w-[var(--radix-popover-trigger-width)] max-h-[280px] overflow-y-auto p-0"
           >
             <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border/40">
               <input
                 ref={promoSearchRef}
                 value={promoSearch}
                 onChange={(e) => setPromoSearch(e.target.value)}
-                // Empêche Radix Select de traiter le tap sur l'input
-                // comme un "click outside" et de fermer le popup sur mobile
-                onPointerDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => { if (e.key !== "Escape" && e.key !== "Enter") e.stopPropagation(); }}
                 placeholder="Rechercher une promotion"
                 className="w-full h-9 rounded-xl border border-border bg-background px-3 py-1 text-sm text-popover-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
               />
             </div>
-            {filteredPromotions.map((p) => (
-              <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-            ))}
-            {filteredPromotions.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Aucune promotion trouvée</div>
-            )}
-          </SelectContent>
-        </Select>
+            <div className="p-1">
+              {filteredPromotions.map((p) => (
+                <PromoOption
+                  key={p.id}
+                  label={p.name}
+                  selected={watch("promotion_name") === p.name}
+                  onSelect={() => setValue("promotion_name", p.name, { shouldValidate: true })}
+                />
+              ))}
+              {filteredPromotions.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  Aucune promotion trouvée
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
         {errors.promotion_name && <p className={errorClass} style={errorColor}>{errors.promotion_name.message}</p>}
       </div>
 
