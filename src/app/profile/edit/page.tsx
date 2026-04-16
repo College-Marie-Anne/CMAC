@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Settings } from "lucide-react";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { BioEditor } from "@/components/profile/bio-editor";
+import { IdentityEditor } from "@/components/profile/identity-editor";
 import { EducationSection } from "@/components/profile/education-section";
 import { ProfessionsSection } from "@/components/profile/professions-section";
 import { ActivitiesSection } from "@/components/profile/activities-section";
@@ -172,6 +173,18 @@ export default async function ProfileEditPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Identité (username, prénom, nom) — l'utilisatrice peut modifier
+            elle-même ces champs depuis ce commit. Rate-limité 3/jour. */}
+        <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <IdentityEditor
+            initial={{
+              username: profile.username,
+              first_name: profile.first_name,
+              last_name: profile.last_name,
+            }}
+          />
         </div>
 
         {/* Bio */}

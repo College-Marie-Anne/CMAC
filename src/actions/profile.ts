@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   updateBioSchema,
+  updateIdentitySchema,
   addEducationSchema,
   addProfessionSchema,
   updateDesiredFieldsSchema,
@@ -16,9 +17,11 @@ import {
   type UpdateDesiredFieldsData,
   type UpdateActivitiesData,
   type UpdateNotificationPrefsData,
+  type UpdateIdentityData,
 } from "@/lib/validations/profile";
 import {
   deactivateAccountLimiter,
+  updateIdentityLimiter,
   checkRateLimit,
 } from "@/lib/rate-limit";
 
@@ -40,6 +43,88 @@ async function requireAuth() {
   if (error || !profile || profile.status !== "active")
     throw new Error("Compte inactif");
   return { supabase, user, profile };
+}
+
+/* ─── Identité (username + prénoms + nom) ─── */
+
+/**
+ * Permet à l'utilisatrice de modifier elle-même son username, son prénom et
+ * son nom. Avant, la spec exigeait de passer par un admin ; l'équipe a
+ * relaxé cette règle suite aux retours utilisateur·ices.
+ *
+ * Checks :
+ *   - Rate limit (3 / jour) pour éviter qu'un compte compromis change
+ *     d'identité en boucle et brouille l'audit.
+ *   - Unicité username via UNIQUE (profiles_username_key) — on fait un check
+ *     préalable pour un message d'erreur propre, puis on se repose sur la
+ *     contrainte DB pour la race (code 23505 → message clair).
+ *   - RLS `profiles_update_own` autorise l'UPDATE quand id = auth.uid().
+ */
+export async function updateIdentityAction(
+  data: UpdateIdentityData
+): Promise<ProfileActionResult> {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    const { allowed, resetAt } = await checkRateLimit(
+      updateIdentityLimiter,
+      user.id
+    );
+    if (!allowed) {
+      const h = Math.ceil((resetAt - Date.now()) / 3600000);
+      return {
+        success: false,
+        error: `Trop de changements d'identité. Réessayez dans ${h}h`,
+      };
+    }
+
+    const parsed = updateIdentitySchema.safeParse(data);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.issues[0].message };
+
+    // Check unicité username (skip si on garde le même)
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .eq("id", user.id)
+      .single();
+
+    if (existing && existing.username !== parsed.data.username) {
+      const { data: taken } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", parsed.data.username)
+        .maybeSingle();
+      if (taken) return { success: false, error: "Ce username est déjà pris" };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        username: parsed.data.username,
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      // Postgres 23505 = UNIQUE violation (race sur le check ci-dessus)
+      if (error.code === "23505") {
+        return { success: false, error: "Ce username est déjà pris" };
+      }
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/profile/edit");
+    revalidatePath(`/profile/${parsed.data.username}`);
+    if (existing?.username && existing.username !== parsed.data.username) {
+      // Ancienne URL de profil devient orpheline côté cache → invalidate aussi
+      revalidatePath(`/profile/${existing.username}`);
+    }
+    return { success: true };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /* ─── Bio ─── */

@@ -1,5 +1,33 @@
 import { z } from "zod";
 
+// Regex XSS (alignée sur register.ts) — rejette balises HTML, schemes
+// dangereux, séquences d'échappement, etc.
+const XSS_BLOCKLIST = /[<>{}`]|javascript\s*:|data\s*:|vbscript\s*:|on\w+\s*=|\\u[0-9a-f]{4}|\\x[0-9a-f]{2}/i;
+
+// ─── Identité (username + prénoms + nom) ───
+// Règles username alignées sur step3Schema de l'inscription pour cohérence.
+export const updateIdentitySchema = z.object({
+  username: z
+    .string()
+    .min(3, "Minimum 3 caractères")
+    .max(20, "Maximum 20 caractères")
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "Seuls les lettres, chiffres et underscores sont autorisés"
+    ),
+  first_name: z
+    .string()
+    .min(1, "Prénom requis")
+    .max(100, "Maximum 100 caractères")
+    .refine((val) => !XSS_BLOCKLIST.test(val), "Caractères non autorisés"),
+  last_name: z
+    .string()
+    .min(1, "Nom requis")
+    .max(100, "Maximum 100 caractères")
+    .refine((val) => !XSS_BLOCKLIST.test(val), "Caractères non autorisés"),
+});
+export type UpdateIdentityData = z.infer<typeof updateIdentitySchema>;
+
 export const updateBioSchema = z.object({
   bio: z.string().max(500, "Maximum 500 caractères").nullable(),
 });

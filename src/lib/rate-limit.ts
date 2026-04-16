@@ -66,6 +66,11 @@ export const supportTicketLimiter = createLimiter("support-ticket", 5, "1 d");
 // ─── Push subscribe (par user ID) — 5/heure contre l'abus (script qui re-souscrit) ───
 export const pushSubscribeLimiter = createLimiter("push-sub", 5, "1 h");
 
+// ─── Identité (username/prénoms/nom) — 3/jour par user
+// Changement rare normalement ; la limite évite qu'un compte compromis change
+// d'identité en boucle pour brouiller l'audit / imiter d'autres utilisatrices.
+export const updateIdentityLimiter = createLimiter("identity", 3, "1 d");
+
 /**
  * Validate and sanitize an IP address.
  * Strips port suffixes, rejects obviously invalid values,
