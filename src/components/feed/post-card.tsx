@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Pin, MoreHorizontal, Pencil, Trash2, MessageSquare, Flag } from "lucide-react";
@@ -13,6 +14,7 @@ import { ReportDialog } from "@/components/moderation/report-dialog";
 import { renderContentWithMentions } from "@/lib/mentions";
 import { timeAgo } from "@/lib/time-ago";
 import { deleteOwnPostAction, pinPostAction } from "@/actions/forum";
+import { deletePostAction as deletePostAsAdminAction } from "@/actions/admin";
 import type { ForumPost } from "@/lib/types/forum";
 
 interface PostCardProps {
@@ -26,10 +28,17 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
   const [showMenu, setShowMenu] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  // isLocallyDeleted : masque le post IMMÉDIATEMENT après suppression, sans
+  // attendre le re-fetch serveur ni le subscribe Realtime. Sans ça, le post
+  // pouvait rester visible pendant plusieurs secondes après un delete.
+  const [isLocallyDeleted, setIsLocallyDeleted] = useState(false);
+  const router = useRouter();
   const isAuthor = post.author?.id === currentUserId;
   // Le menu s'affiche pour tout le monde (signalement dispo pour non-auteurs non-admin)
   // SAUF si le post n'a pas d'auteur visible (utilisatrice supprimée)
   const canShowMenu = isAuthor || isAdmin || (!!post.author && !!currentUserId);
+
+  if (isLocallyDeleted) return null;
 
   return (
     <article className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
@@ -114,7 +123,21 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
                   )}
                   {(isAuthor || isAdmin) && (
                     <DeleteConfirmDialog
-                      onConfirm={async () => { await deleteOwnPostAction(post.id); }}
+                      onConfirm={async () => {
+                        // Route vers la bonne action selon le rôle — sans ça,
+                        // un admin qui supprime le post d'un autre échoue
+                        // silencieusement (deleteOwnPostAction filtre
+                        // author_id=user.id → 0 rows updated, success:true
+                        // trompeur). Même bug que celui des commentaires.
+                        const result = isAuthor
+                          ? await deleteOwnPostAction(post.id)
+                          : await deletePostAsAdminAction(post.id);
+                        if (result.success) {
+                          setIsLocallyDeleted(true);
+                          setShowMenu(false);
+                          router.refresh();
+                        }
+                      }}
                       trigger={
                         <button
                           type="button"
