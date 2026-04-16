@@ -57,7 +57,10 @@ export default function RootLayout({
             zIndex: -1,
           }}
         />
-        <SerwistProvider swUrl="/serwist/sw.js">
+        {/* scope: "/" — le SW contrôle tout le site (requis pour que Chrome
+            affiche l'install prompt). @serwist/turbopack renvoie l'en-tête
+            Service-Worker-Allowed: / côté serveur qui autorise ce scope. */}
+        <SerwistProvider swUrl="/serwist/sw.js" options={{ scope: "/" }}>
           {children}
         </SerwistProvider>
         <OfflineBanner />

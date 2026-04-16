@@ -951,7 +951,7 @@ function Step2AlumniForm({
                 type="button"
                 className={cn(
                   inputClass,
-                  "flex items-center justify-between text-left"
+                  "flex items-center justify-between text-left px-4"
                 )}
                 style={inputStyle}
               >
@@ -1202,7 +1202,7 @@ function Step2S4Form({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className={cn(inputClass, "flex items-center justify-between text-left")}
+              className={cn(inputClass, "flex items-center justify-between text-left px-4")}
               style={inputStyle}
             >
               <span className={watch("promotion_name") ? "" : "text-muted-foreground"}>
