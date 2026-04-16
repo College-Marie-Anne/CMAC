@@ -58,6 +58,9 @@ export const deactivateAccountLimiter = createLimiter("deactivate", 1, "1 d");
 // ─── Support tickets (par user ID) — spec §731 : 5 / jour ───
 export const supportTicketLimiter = createLimiter("support-ticket", 5, "1 d");
 
+// ─── Push subscribe (par user ID) — 5/heure contre l'abus (script qui re-souscrit) ───
+export const pushSubscribeLimiter = createLimiter("push-sub", 5, "1 h");
+
 /**
  * Validate and sanitize an IP address.
  * Strips port suffixes, rejects obviously invalid values,

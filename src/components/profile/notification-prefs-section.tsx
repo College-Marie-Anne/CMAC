@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateNotificationPrefsAction } from "@/actions/profile";
+import { usePushSubscription } from "@/lib/hooks/use-push-subscription";
 import type { NotificationPrefs } from "@/lib/types/profile";
 
 interface NotificationPrefsSectionProps {
@@ -113,6 +114,9 @@ export function NotificationPrefsSection({ initial, userRole }: NotificationPref
   const [savedPrefs, setSavedPrefs] = useState<NotificationPrefs>(initial);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isPushPending, setIsPushPending] = useState(false);
+  const { state: pushState, enable: enablePush, disable: disablePush } =
+    usePushSubscription();
 
   const isDirty = (Object.keys(prefs) as PrefKey[]).some(
     (k) => prefs[k] !== savedPrefs[k]
@@ -126,7 +130,33 @@ export function NotificationPrefsSection({ initial, userRole }: NotificationPref
     return true;
   });
 
+  // Toggle push = action imperative (nécessite user gesture pour
+  // Notification.requestPermission()). On ne peut pas la différer au
+  // bouton "Enregistrer" → on la traite immédiatement et on sync le state
+  // local + savedPrefs (pas de "dirty" sur ce toggle).
+  const handlePushToggle = async (val: boolean) => {
+    setError(null);
+    setIsPushPending(true);
+    try {
+      const result = val ? await enablePush() : await disablePush();
+      if (!result.ok) {
+        setError(result.error ?? "Erreur");
+        return;
+      }
+      // L'action Server save/deletePushSubscription synchronise déjà
+      // push_enabled en DB → on reflète localement.
+      setPrefs((p) => ({ ...p, push_enabled: val }));
+      setSavedPrefs((p) => ({ ...p, push_enabled: val }));
+    } finally {
+      setIsPushPending(false);
+    }
+  };
+
   const update = (key: PrefKey, val: boolean) => {
+    if (key === "push_enabled") {
+      void handlePushToggle(val);
+      return;
+    }
     setPrefs((p) => ({ ...p, [key]: val }));
     setError(null);
   };
@@ -134,7 +164,13 @@ export function NotificationPrefsSection({ initial, userRole }: NotificationPref
   const handleSave = () => {
     setError(null);
     startTransition(async () => {
-      const result = await updateNotificationPrefsAction(prefs);
+      // push_enabled est géré par handlePushToggle → on exclut de l'update
+      // groupé pour ne pas écraser la synchro faite par save/deletePushSubscription
+      const { push_enabled: _, ...rest } = prefs;
+      void _;
+      const result = await updateNotificationPrefsAction(
+        rest as NotificationPrefs
+      );
       if (!result.success) {
         setError(result.error ?? "Erreur");
         return;
@@ -147,6 +183,23 @@ export function NotificationPrefsSection({ initial, userRole }: NotificationPref
     setPrefs(savedPrefs);
     setError(null);
   };
+
+  // État du toggle push : disabled + message si environnement non supporté
+  const pushDisabled =
+    pushState === "loading" ||
+    pushState === "unsupported" ||
+    pushState === "no-vapid" ||
+    pushState === "denied" ||
+    isPushPending;
+
+  const pushHint =
+    pushState === "unsupported"
+      ? "Votre navigateur ne supporte pas les notifications push"
+      : pushState === "no-vapid"
+        ? "Les notifications push ne sont pas configurées sur ce déploiement"
+        : pushState === "denied"
+          ? "Permission refusée — autorisez les notifications dans les paramètres du navigateur"
+          : null;
 
   return (
     <div className="space-y-4">
@@ -161,27 +214,41 @@ export function NotificationPrefsSection({ initial, userRole }: NotificationPref
       </div>
 
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
-        {visibleMeta.map((meta) => (
-          <div
-            key={meta.key}
-            className="flex items-start justify-between gap-3 py-3"
-          >
-            <label htmlFor={`pref-${meta.key}`} className="flex-1 cursor-pointer">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {meta.label}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {meta.description}
-              </p>
-            </label>
-            <Toggle
-              id={`pref-${meta.key}`}
-              checked={prefs[meta.key]}
-              onChange={(v) => update(meta.key, v)}
-              disabled={isPending}
-            />
-          </div>
-        ))}
+        {visibleMeta.map((meta) => {
+          const isPush = meta.key === "push_enabled";
+          const hint = isPush ? pushHint : null;
+          return (
+            <div
+              key={meta.key}
+              className="flex items-start justify-between gap-3 py-3"
+            >
+              <label
+                htmlFor={`pref-${meta.key}`}
+                className="flex-1 cursor-pointer"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {meta.label}
+                  {isPush && isPushPending && (
+                    <Loader2
+                      size={12}
+                      className="inline-block ml-2 animate-spin text-gray-400"
+                      aria-hidden="true"
+                    />
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {hint ?? meta.description}
+                </p>
+              </label>
+              <Toggle
+                id={`pref-${meta.key}`}
+                checked={prefs[meta.key]}
+                onChange={(v) => update(meta.key, v)}
+                disabled={isPending || (isPush && pushDisabled)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}

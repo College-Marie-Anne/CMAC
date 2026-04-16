@@ -186,7 +186,16 @@
       "Bash(wc -l C:/Projets/CMAC/src/components/messages/*.tsx C:/Projets/CMAC/src/components/mentorship/*.tsx C:/Projets/CMAC/src/components/profile/*.tsx C:/Projets/CMAC/src/components/promo/*.tsx C:/Projets/CMAC/src/components/directory/*.tsx C:/Projets/CMAC/src/components/moderation/*.tsx C:/Projets/CMAC/src/components/notifications/*.tsx C:/Projets/CMAC/src/components/settings/*.tsx C:/Projets/CMAC/src/components/support/*.tsx C:/Projets/CMAC/src/components/pwa/*.tsx C:/Projets/CMAC/src/components/ui/*.tsx)",
       "Bash(ls C:/Projets/CMAC/src/app/profile/[username])",
       "Bash(curl -s -o /dev/null -w \"status=%{http_code} redirect=%{redirect_url}\\\\n\" http://localhost:3000/promo -I)",
-      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:3000/promo)"
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:3000/promo)",
+      "Bash(grep -c \"notify_user\\\\|create_notification\" C:/Projets/CMAC/supabase/migrations/*.sql)",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__list_extensions",
+      "Bash(npx web-push:*)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/serwist/sw.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s http://localhost:3000/serwist/sw.js)",
+      "Bash(grep -n \"search_vector\\\\|tsvector\" C:/Projets/CMAC/supabase/migrations/*.sql)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/messages)"
     ]
   }
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   createPostSchema,
   editPostSchema,
@@ -20,6 +21,7 @@ import {
   checkRateLimit,
 } from "@/lib/rate-limit";
 import { parseMentions } from "@/lib/mentions";
+import { dispatchPush } from "@/lib/push";
 
 export type ForumActionResult = {
   success: boolean;
@@ -107,18 +109,21 @@ export async function createPostAction(
         .neq("id", user.id);
 
       for (const u of mentionedUsers ?? []) {
+        const recipientId = u.id;
+        const content = `@${authorUsername} vous a mentionnée dans un post.`;
         supabase
           .rpc("notify_user", {
-            p_recipient: u.id,
+            p_recipient: recipientId,
             p_type: "mention",
             p_reference_id: newPostId,
-            p_content: `@${authorUsername} vous a mentionnée dans un post.`,
+            p_content: content,
             p_preference_field: "mention",
           })
           .then(
             () => {},
             () => {}
           );
+        after(() => dispatchPush(recipientId, "mention", newPostId, content));
       }
     }
 
@@ -137,19 +142,22 @@ export async function createPostAction(
         .in("role", ["student", "s4"])
         .neq("id", user.id);
 
+      const oppContent = "Nouvelle opportunité publiée sur Bourses & Opportunités.";
       for (const s of students ?? []) {
+        const recipientId = s.id;
         supabase
           .rpc("notify_user", {
-            p_recipient: s.id,
+            p_recipient: recipientId,
             p_type: "new_opportunity",
             p_reference_id: newPostId,
-            p_content: "Nouvelle opportunité publiée sur Bourses & Opportunités.",
+            p_content: oppContent,
             p_preference_field: "new_opportunity",
           })
           .then(
             () => {},
             () => {}
           );
+        after(() => dispatchPush(recipientId, "new_opportunity", newPostId, oppContent));
       }
     }
 
@@ -270,13 +278,16 @@ export async function pinPostAction(
     // Passe par la RPC SECURITY DEFINER `notify_user` car la table notifications
     // n'a aucune RLS INSERT (migration 023).
     if (willPin && post.author_id && post.author_id !== profile.id) {
+      const authorId = post.author_id;
+      const content = "Votre post a ete epingle.";
       await supabase.rpc("notify_user", {
-        p_recipient: post.author_id,
+        p_recipient: authorId,
         p_type: "post_pinned",
         p_reference_id: postId,
-        p_content: "Votre post a ete epingle.",
+        p_content: content,
         p_preference_field: null,
       });
+      after(() => dispatchPush(authorId, "post_pinned", postId, content));
     }
 
     revalidatePath("/feed");
@@ -345,13 +356,17 @@ export async function createCommentAction(
 
     // 1. forum_reply → auteur du post (sauf self-comment)
     if (postData?.author_id && postData.author_id !== user.id) {
+      const authorId = postData.author_id;
+      const refId = postData.id;
+      const content = "Nouveau commentaire sur votre post.";
       await supabase.rpc("notify_user", {
-        p_recipient: postData.author_id,
+        p_recipient: authorId,
         p_type: "forum_reply",
-        p_reference_id: postData.id,
-        p_content: "Nouveau commentaire sur votre post.",
+        p_reference_id: refId,
+        p_content: content,
         p_preference_field: "forum_reply",
       });
+      after(() => dispatchPush(authorId, "forum_reply", refId, content));
     }
 
     // 2. forum_comment_reply → autres commentateurs (sauf self + auteur du post)
@@ -373,19 +388,29 @@ export async function createCommentAction(
       )
     );
 
+    const commentReplyRef = postData?.id ?? postId;
+    const commentReplyContent = "Nouveau commentaire sur un post que vous suivez.";
     for (const commenterId of uniqueCommenters) {
       supabase
         .rpc("notify_user", {
           p_recipient: commenterId,
           p_type: "forum_comment_reply",
-          p_reference_id: postData?.id ?? postId,
-          p_content: "Nouveau commentaire sur un post que vous suivez.",
+          p_reference_id: commentReplyRef,
+          p_content: commentReplyContent,
           p_preference_field: "forum_comment_reply",
         })
         .then(
           () => {},
           () => {}
         );
+      after(() =>
+        dispatchPush(
+          commenterId,
+          "forum_comment_reply",
+          commentReplyRef,
+          commentReplyContent
+        )
+      );
     }
 
     // 3. mentions @username dans le commentaire (référence = post_id)
@@ -405,19 +430,22 @@ export async function createCommentAction(
         .eq("status", "active")
         .neq("id", user.id);
 
+      const mentionContent = `@${authorUsername} vous a mentionnée dans un commentaire.`;
       for (const u of mentionedUsers ?? []) {
+        const recipientId = u.id;
         supabase
           .rpc("notify_user", {
-            p_recipient: u.id,
+            p_recipient: recipientId,
             p_type: "mention",
             p_reference_id: postId,
-            p_content: `@${authorUsername} vous a mentionnée dans un commentaire.`,
+            p_content: mentionContent,
             p_preference_field: "mention",
           })
           .then(
             () => {},
             () => {}
           );
+        after(() => dispatchPush(recipientId, "mention", postId, mentionContent));
       }
     }
 
@@ -547,18 +575,22 @@ export async function toggleReactionAction(
     }
 
     if (targetAuthor && targetAuthor !== user.id) {
+      const authorId = targetAuthor;
+      const reactionRef = refId;
+      const reactionContent = "Nouvelle réaction sur votre publication.";
       supabase
         .rpc("notify_user", {
-          p_recipient: targetAuthor,
+          p_recipient: authorId,
           p_type: "reaction",
-          p_reference_id: refId,
-          p_content: "Nouvelle réaction sur votre publication.",
+          p_reference_id: reactionRef,
+          p_content: reactionContent,
           p_preference_field: "reaction",
         })
         .then(
           () => {},
           () => {}
         );
+      after(() => dispatchPush(authorId, "reaction", reactionRef, reactionContent));
     }
 
     return { success: true, action: "added" };

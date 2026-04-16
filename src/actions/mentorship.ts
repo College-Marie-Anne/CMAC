@@ -3,6 +3,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { mentorshipRequestSchema } from "@/lib/validations/mentorship";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { dispatchPush } from "@/lib/push";
 
 export async function sendMentorshipRequestAction(formData: FormData) {
   try {
@@ -75,13 +77,16 @@ export async function sendMentorshipRequestAction(formData: FormData) {
     // - Filtre les comptes non-actifs
     // - Bypass la RLS sur notifications (pas d'INSERT direct possible)
     if (validated.data.mentor_id && validated.data.mentor_id !== user.id) {
+      const targetMentorId = validated.data.mentor_id;
+      const content = "Une eleve souhaite etre mentoree par vous.";
       await supabase.rpc("notify_user", {
-        p_recipient: validated.data.mentor_id,
+        p_recipient: targetMentorId,
         p_type: "mentorship",
         p_reference_id: request.id,
-        p_content: "Une eleve souhaite etre mentoree par vous.",
+        p_content: content,
         p_preference_field: "mentorship",
       });
+      after(() => dispatchPush(targetMentorId, "mentorship", request.id, content));
     }
 
     revalidatePath("/mentorship");
@@ -116,14 +121,17 @@ export async function acceptMentorshipRequestAction(requestId: string) {
     // Inform the mentee via RPC notify_user (préférence opt-in 'mentorship').
     const { data: reqData } = await supabase.from("mentorship_requests").select("mentee_id").eq("id", requestId).single();
     if (reqData?.mentee_id && reqData.mentee_id !== user.id) {
+      const menteeId = reqData.mentee_id;
+      const content =
+        "Une alumni a accepte votre demande. Vous pouvez maintenant echanger via la messagerie.";
       await supabase.rpc("notify_user", {
-        p_recipient: reqData.mentee_id,
+        p_recipient: menteeId,
         p_type: "mentorship",
         p_reference_id: sessionId,
-        p_content:
-          "Une alumni a accepte votre demande. Vous pouvez maintenant echanger via la messagerie.",
+        p_content: content,
         p_preference_field: "mentorship",
       });
+      after(() => dispatchPush(menteeId, "mentorship", sessionId as string, content));
     }
 
     revalidatePath("/mentorship");
@@ -166,13 +174,16 @@ export async function declineMentorshipRequestAction(requestId: string) {
     }
 
     if (reqData.mentee_id && reqData.mentee_id !== user.id) {
+      const menteeId = reqData.mentee_id;
+      const content = "Votre demande de mentorat a ete declinee.";
       await supabase.rpc("notify_user", {
-        p_recipient: reqData.mentee_id,
+        p_recipient: menteeId,
         p_type: "mentorship",
         p_reference_id: requestId,
-        p_content: "Votre demande de mentorat a ete declinee.",
+        p_content: content,
         p_preference_field: "mentorship",
       });
+      after(() => dispatchPush(menteeId, "mentorship", requestId, content));
     }
 
     revalidatePath("/mentorship");
@@ -210,13 +221,16 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
     // Determine target to notify (l'autre partie de la session)
     const notifyId = session.mentor_id === user.id ? session.mentee_id : session.mentor_id;
     if (notifyId && notifyId !== user.id) {
+      const targetId = notifyId;
+      const content = "Une de vos sessions de mentorat a ete marquee comme terminee.";
       await supabase.rpc("notify_user", {
-        p_recipient: notifyId,
+        p_recipient: targetId,
         p_type: "mentorship_completed",
         p_reference_id: sessionId,
-        p_content: "Une de vos sessions de mentorat a ete marquee comme terminee.",
+        p_content: content,
         p_preference_field: "mentorship_completed",
       });
+      after(() => dispatchPush(targetId, "mentorship_completed", sessionId, content));
     }
 
     revalidatePath("/mentorship");

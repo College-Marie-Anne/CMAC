@@ -65,4 +65,31 @@ export const env = {
   get emailFrom(): string {
     return process.env.EMAIL_FROM ?? "CMA Connect <onboarding@resend.dev>";
   },
+  /**
+   * Clé publique VAPID — exposée au client pour `pushManager.subscribe()`.
+   * Générée via `npx web-push generate-vapid-keys --json` puis configurée
+   * en `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (Vercel prod + preview + .env.local).
+   *
+   * null si non configurée → les push sont silencieusement désactivés
+   * (le hook client signale l'état "unsupported" et le helper serveur
+   * `sendPushToUser` short-circuit).
+   */
+  get vapidPublicKey(): string | null {
+    return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
+  },
+  /**
+   * Clé privée VAPID — NE JAMAIS exposer au client.
+   * Uniquement utilisée côté serveur par `web-push` pour signer les JWT
+   * d'authentification auprès des endpoints push (FCM, Mozilla, Apple).
+   */
+  get vapidPrivateKey(): string | null {
+    return process.env.VAPID_PRIVATE_KEY ?? null;
+  },
+  /**
+   * Sujet VAPID — adresse mailto ou URL que les push gateways utilisent
+   * pour contacter l'admin en cas d'abus. Obligatoire dans le JWT VAPID.
+   */
+  get vapidSubject(): string {
+    return process.env.VAPID_SUBJECT ?? "mailto:admin@cmaconnect.app";
+  },
 };

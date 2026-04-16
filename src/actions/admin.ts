@@ -15,6 +15,7 @@ import {
 } from "@/lib/validations/promo";
 import { tagSchema } from "@/lib/validations/forum";
 import { sendAccountApprovedEmail } from "@/lib/emails/account-approved";
+import { dispatchPush } from "@/lib/push";
 
 export type AdminActionResult = {
   success: boolean;
@@ -140,13 +141,15 @@ export async function approveUserAction(
     // (migration 020) — action 'approve_user' détectée via la transition status.
 
     // Notification in-app (non-opt-out → preference_field: null)
+    const approvedContent = "Votre compte a été approuvé. Bienvenue sur CMA Connect !";
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "account_approved",
       p_reference_id: userId,
-      p_content: "Votre compte a été approuvé. Bienvenue sur CMA Connect !",
+      p_content: approvedContent,
       p_preference_field: null,
     });
+    after(() => dispatchPush(userId, "account_approved", userId, approvedContent));
 
     // Email de confirmation (non-bloquant — l'approbation DB est déjà
     // effective). L'email de l'utilisatrice vit dans auth.users donc on
@@ -237,6 +240,7 @@ export async function bulkApproveAction(
 
     // Notifications in-app : on les envoie AVANT la response car on veut
     // qu'elles soient visibles immédiatement après le revalidate.
+    const bulkApprovedContent = "Votre compte a été approuvé. Bienvenue sur CMA Connect !";
     try {
       await Promise.all(
         userIds.map((id) =>
@@ -244,9 +248,16 @@ export async function bulkApproveAction(
             p_recipient: id,
             p_type: "account_approved",
             p_reference_id: id,
-            p_content: "Votre compte a été approuvé. Bienvenue sur CMA Connect !",
+            p_content: bulkApprovedContent,
             p_preference_field: null,
           })
+        )
+      );
+      after(() =>
+        Promise.all(
+          userIds.map((id) =>
+            dispatchPush(id, "account_approved", id, bulkApprovedContent)
+          )
         )
       );
     } catch (notifErr) {
@@ -322,13 +333,17 @@ export async function suspendUserAction(
     // suspendu donc la notification ne sera pas créée. C'est OK : la spec
     // §488 prévoit l'envoi par email (out-of-scope ici). On garde l'appel
     // pour rester cohérent avec le pattern.
+    // Le push, lui, passe (sendPushToUser ne check pas le status) → le user
+    // reçoit la notif OS même si la cloche in-app ne sera plus accessible.
+    const suspendContent = "Votre compte a été suspendu par un administrateur.";
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "account_suspended",
       p_reference_id: userId,
-      p_content: "Votre compte a été suspendu par un administrateur.",
+      p_content: suspendContent,
       p_preference_field: null,
     });
+    after(() => dispatchPush(userId, "account_suspended", userId, suspendContent));
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -357,13 +372,15 @@ export async function reactivateUserAction(
 
     // Notification account_reactivated (non-opt-out). Le compte vient juste
     // de passer à 'active' donc notify_user créera bien la ligne.
+    const reactivateContent = "Votre compte a été réactivé.";
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "account_reactivated",
       p_reference_id: userId,
-      p_content: "Votre compte a été réactivé.",
+      p_content: reactivateContent,
       p_preference_field: null,
     });
+    after(() => dispatchPush(userId, "account_reactivated", userId, reactivateContent));
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -393,13 +410,15 @@ export async function deactivateUserAction(
     // Notification account_deactivated (non-opt-out). Le compte vient d'être
     // désactivé ; notify_user filtre les comptes non-actifs donc l'INSERT sera
     // un no-op. Conservé pour cohérence (cf. suspendUserAction).
+    const deactivateContent = "Votre compte a été désactivé.";
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "account_deactivated",
       p_reference_id: userId,
-      p_content: "Votre compte a été désactivé.",
+      p_content: deactivateContent,
       p_preference_field: null,
     });
+    after(() => dispatchPush(userId, "account_deactivated", userId, deactivateContent));
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -706,13 +725,16 @@ export async function deletePostAction(
 
     // Notification : auteur du post supprimé (sauf si admin se supprime lui-même).
     if (postBefore?.author_id && postBefore.author_id !== user.id) {
+      const authorId = postBefore.author_id;
+      const content = "Votre post a été supprimé par un administrateur.";
       await supabase.rpc("notify_user", {
-        p_recipient: postBefore.author_id,
+        p_recipient: authorId,
         p_type: "admin",
         p_reference_id: postId,
-        p_content: "Votre post a été supprimé par un administrateur.",
+        p_content: content,
         p_preference_field: null,
       });
+      after(() => dispatchPush(authorId, "admin", postId, content));
     }
 
     revalidatePath("/admin/moderation");
@@ -746,13 +768,16 @@ export async function deleteCommentAction(
 
     // Notification : auteur du commentaire supprimé (sauf self-delete admin).
     if (commentBefore?.author_id && commentBefore.author_id !== user.id) {
+      const authorId = commentBefore.author_id;
+      const content = "Votre commentaire a été supprimé par un administrateur.";
       await supabase.rpc("notify_user", {
-        p_recipient: commentBefore.author_id,
+        p_recipient: authorId,
         p_type: "admin",
         p_reference_id: commentId,
-        p_content: "Votre commentaire a été supprimé par un administrateur.",
+        p_content: content,
         p_preference_field: null,
       });
+      after(() => dispatchPush(authorId, "admin", commentId, content));
     }
 
     revalidatePath("/admin/moderation");
@@ -849,13 +874,16 @@ export async function respondTicketAction(
       .maybeSingle();
 
     if (ticket?.author_id) {
+      const authorId = ticket.author_id;
+      const content = "Un administrateur a répondu à votre ticket de support.";
       await supabase.rpc("notify_user", {
-        p_recipient: ticket.author_id,
+        p_recipient: authorId,
         p_type: "support_reply",
         p_reference_id: ticketId,
-        p_content: "Un administrateur a répondu à votre ticket de support.",
+        p_content: content,
         p_preference_field: null,
       });
+      after(() => dispatchPush(authorId, "support_reply", ticketId, content));
     }
 
     revalidatePath("/admin/support");
@@ -997,13 +1025,15 @@ export async function updateProfileAction(
     // Notification (non-opt-out) à la propriétaire du profil modifié.
     // On notifie systématiquement (peu importe quels champs) sauf si l'admin
     // édite son propre profil (cas peu probable mais possible).
+    const updateProfileContent = "Votre profil a été modifié par un administrateur.";
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "admin",
       p_reference_id: userId,
-      p_content: "Votre profil a été modifié par un administrateur.",
+      p_content: updateProfileContent,
       p_preference_field: null,
     });
+    after(() => dispatchPush(userId, "admin", userId, updateProfileContent));
 
     revalidatePath(`/admin/users/${userId}`);
     revalidatePath("/admin/users");
@@ -1095,6 +1125,87 @@ export async function updatePromotionAction(
         },
       },
     });
+
+    revalidatePath("/admin/promotions");
+    return { success: true };
+  } catch (e: unknown) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Rejette une promotion : suspend les profils rattachés + notifie + push.
+ *
+ * Extraite de `src/app/admin/promotions/page.tsx` pour pouvoir utiliser
+ * `after()` + `dispatchPush()` (APIs serveur uniquement). Le composant
+ * client appelle cette action au lieu de faire les supabase calls inline.
+ *
+ * Ordre critique :
+ *   1. Fetch profils actifs liés (AVANT suspend) — notify_user filtre les
+ *      comptes non-actifs, il faut donc notifier avant de suspend.
+ *   2. UPDATE promotions.status = 'rejected'
+ *   3. notify_user + dispatchPush pour chaque profil
+ *   4. UPDATE profiles.status = 'suspended' en masse
+ */
+export async function rejectPromotionAction(
+  promoId: string
+): Promise<AdminActionResult> {
+  try {
+    const { supabase } = await requireAdmin();
+
+    // 1. Profils affectés AVANT la suspension
+    const { data: affectedProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("promo_id", promoId)
+      .neq("role", "admin")
+      .eq("status", "active");
+
+    // 2. Reject la promo
+    const { error: rejectErr } = await supabase
+      .from("promotions")
+      .update({ status: "rejected" })
+      .eq("id", promoId);
+
+    if (rejectErr) return { success: false, error: rejectErr.message };
+
+    // 3. Notifications + push (fire-and-forget côté DB, push via after())
+    const rejectContent =
+      "Votre promotion a été rejetée. Contactez un admin dans les 3 jours.";
+    const recipientIds = (affectedProfiles ?? []).map((p) => p.id);
+
+    for (const recipientId of recipientIds) {
+      supabase
+        .rpc("notify_user", {
+          p_recipient: recipientId,
+          p_type: "promo_rejected",
+          p_reference_id: promoId,
+          p_content: rejectContent,
+          p_preference_field: null,
+        })
+        .then(
+          () => {},
+          () => {}
+        );
+    }
+
+    after(() =>
+      Promise.all(
+        recipientIds.map((id) =>
+          dispatchPush(id, "promo_rejected", promoId, rejectContent)
+        )
+      )
+    );
+
+    // 4. Suspendre les profils liés
+    await supabase
+      .from("profiles")
+      .update({ status: "suspended" })
+      .eq("promo_id", promoId)
+      .neq("role", "admin");
 
     revalidatePath("/admin/promotions");
     return { success: true };

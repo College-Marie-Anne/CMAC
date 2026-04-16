@@ -67,14 +67,32 @@ export function NewConversationDialog({
           blockedSet.add(b.blocker_id);
         }
 
-        // Search by name or username using textSearch
+        // Recherche progressive (au fur et à mesure de la frappe) → on
+        // n'utilise PAS `textSearch("search_vector", ..., { type: "websearch" })`.
+        // Raison : websearch normalise en lexèmes complets → taper "Led" donne
+        // le lexème 'led' qui ne matche pas 'leddyci' (profil "Leddycia"). Pour
+        // matcher les préfixes / substrings il faudrait `to_tsquery('Led:*')`
+        // mais l'API supabase.textSearch ne l'expose pas proprement.
+        //
+        // À la place : `ilike` sur first_name / last_name / username. Pas
+        // d'index utilisé (seq scan) mais la table profiles reste petite
+        // (quelques milliers max) → OK pour ce cas d'usage.
+        //
+        // Échappement : les caractères `%` et `_` sont des wildcards en
+        // ilike. On les remplace avant d'injecter dans le pattern pour que
+        // taper "%" dans la barre de recherche ne matche pas tout.
+        const safeQ = query.trim().replace(/[%_]/g, "\\$&");
+        const pattern = `%${safeQ}%`;
+
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, username, avatar_url, role")
           .eq("status", "active")
           .neq("role", "admin")
           .neq("id", currentUserId)
-          .textSearch("search_vector", query.trim(), { type: "websearch" })
+          .or(
+            `first_name.ilike.${pattern},last_name.ilike.${pattern},username.ilike.${pattern}`
+          )
           .limit(10);
 
         const filtered = (profiles ?? []).filter(
