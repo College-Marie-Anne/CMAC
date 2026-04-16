@@ -11,15 +11,34 @@ import type { NextConfig } from "next";
  *  - 'unsafe-inline' scripts : requis pour le script anti-FOUC beforeInteractive
  *    et le bundle Next.js qui inline certains scripts (pas de nonce activé ici)
  *  - 'unsafe-inline' styles : requis pour Framer Motion + shadcn/ui + Tailwind
- *  - 'unsafe-eval' : requis en dev (Turbopack HMR) — toléré aussi en prod par
- *    mesure de prudence (certaines libs de parsing peuvent l'utiliser)
+ *  - 'unsafe-eval' : UNIQUEMENT en dev (Turbopack HMR utilise eval pour fast
+ *    refresh). Retiré en prod pour réduire la surface XSS — aucune dépendance
+ *    runtime (Sentry, Framer Motion, Supabase, Radix, Resend) ne nécessite
+ *    eval en prod. Si un crash apparaît après déploiement, vérifier la console
+ *    pour "EvalError" ou "CSP violation: unsafe-eval".
+ *  - 'wasm-unsafe-eval' : ajouté en prod par sécurité pour les WASM modules
+ *    (Sentry replay peut en utiliser pour la compression). Beaucoup moins
+ *    risqué qu'unsafe-eval (le code WASM ne peut pas accéder au DOM directement).
  *
  * Sentry : le tunnel `/monitoring` route via notre domaine, donc pas besoin
  * de whitelist sentry.io dans connect-src.
  */
+const isDev = process.env.NODE_ENV !== "production";
+
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  // unsafe-eval uniquement en dev (Turbopack HMR)
+  isDev ? "'unsafe-eval'" : null,
+  // WASM toléré en prod (Sentry replay, futurs WASM modules)
+  !isDev ? "'wasm-unsafe-eval'" : null,
+]
+  .filter(Boolean)
+  .join(" ");
+
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `script-src ${scriptSrc}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' blob: data: https://*.supabase.co",
