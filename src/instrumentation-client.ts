@@ -7,6 +7,15 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://6c7790a40c19f5152122e000af232ea1@o4511200062406656.ingest.us.sentry.io/4511200064831488",
 
+  // Environnement explicite — distinguer prod / preview / dev dans le dashboard
+  // Sentry. NEXT_PUBLIC_VERCEL_ENV est exposé côté client par Vercel.
+  environment:
+    process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+
+  // Release tag — pour mapper les erreurs au commit qui les a introduites.
+  // NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA exposé côté client par Vercel.
+  release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
