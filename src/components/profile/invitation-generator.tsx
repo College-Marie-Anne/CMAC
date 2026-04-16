@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Link2,
   Copy,
@@ -84,18 +85,30 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
   const [isGenerating, startGenerate] = useTransition();
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [isRevoking, startRevoke] = useTransition();
+  // Masque immédiatement les liens qu'on vient de révoquer sans attendre le
+  // re-fetch serveur : sans ça, revokeInvitationLinkAction mettait bien
+  // is_revoked=true en DB mais le lien restait affiché comme "Actif" jusqu'à
+  // navigation/reload → l'utilisatrice pensait que la révocation ne marchait pas.
+  const [locallyRevoked, setLocallyRevoked] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
 
+  // Applique l'optimistic revoke : un lien dans `locallyRevoked` est affiché
+  // comme révoqué même si le prop encore reçu du SSR dit is_revoked=false
+  // (avant que le router.refresh ne se propage).
+  const effectiveStatus = (link: InvitationLinkItem): LinkStatus =>
+    locallyRevoked.has(link.id) ? "revoked" : getStatus(link);
+
   // Tri : actifs d'abord, puis utilisés / expirés / révoqués (les plus récents en haut).
   const sorted = [...invitations].sort((a, b) => {
-    const aActive = getStatus(a) === "active" ? 0 : 1;
-    const bActive = getStatus(b) === "active" ? 0 : 1;
+    const aActive = effectiveStatus(a) === "active" ? 0 : 1;
+    const bActive = effectiveStatus(b) === "active" ? 0 : 1;
     if (aActive !== bActive) return aActive - bActive;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const activeCount = invitations.filter((l) => getStatus(l) === "active").length;
+  const activeCount = invitations.filter((l) => effectiveStatus(l) === "active").length;
   const atLimit = activeCount >= MAX_ACTIVE_LINKS;
 
   const handleGenerate = () => {
@@ -125,9 +138,16 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
     startRevoke(async () => {
       const result = await revokeInvitationLinkAction(link.id);
       if (!result.success) {
-        setError(result.error ?? "Erreur");
+        setError(result.error ?? "Erreur lors de la révocation");
+        setRevokingId(null);
+        return;
       }
+      // Update local state so le badge passe de "Actif" à "Révoqué"
+      // immédiatement, puis router.refresh pour réaligner les autres onglets
+      // et re-fetch les données serveur.
+      setLocallyRevoked((prev) => new Set(prev).add(link.id));
       setRevokingId(null);
+      router.refresh();
     });
   };
 
@@ -183,7 +203,7 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
       {sorted.length > 0 && (
         <ul className="space-y-2 pt-2">
           {sorted.map((link) => {
-            const status = getStatus(link);
+            const status = effectiveStatus(link);
             const meta = STATUS_META[status];
             const StatusIcon = meta.icon;
             const isCopied = copiedId === link.id;

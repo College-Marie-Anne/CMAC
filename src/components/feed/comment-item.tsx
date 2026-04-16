@@ -43,6 +43,10 @@ export function CommentItem({
   // bouge pas → le commentaire reste visible jusqu'à navigation/reload, ce qui
   // donnait l'impression que "la suppression ne marche pas".
   const [isLocallyDeleted, setIsLocallyDeleted] = useState(false);
+  // deleteError : avant ce fix, si deleteOwnCommentAction échouait (session
+  // expirée, RLS, etc.), rien n'apparaissait côté UI — l'utilisatrice pensait
+  // que "le bouton Supprimer ne fait rien". On affiche désormais l'erreur.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
   const isAuthor = comment.author?.id === currentUserId;
   const canShowMenu = isAuthor || isAdmin || (!!comment.author && !!currentUserId);
@@ -193,26 +197,30 @@ export function CommentItem({
                     {(isAuthor || isAdmin) && (
                       <DeleteConfirmDialog
                         onConfirm={async () => {
-                          // Router vers la bonne action selon le rôle :
-                          //   - Auteur         → deleteOwnCommentAction filtre
-                          //     author_id=user.id dans l'UPDATE. Parfait pour
-                          //     l'auteur, mais pour un admin qui supprime le
-                          //     comment d'un autre, le filtre ne matche aucune
-                          //     ligne → 0 rows updated, pas d'erreur, rien ne
-                          //     se passe en DB. C'était le bug.
-                          //   - Admin non-auteur → deleteCommentAction (admin.ts)
-                          //     qui s'appuie sur la policy `forum_comments_update_admin`
-                          //     (pas de check author_id) + trace audit + notif.
-                          const result = isAuthor
-                            ? await deleteOwnCommentAction(comment.id)
-                            : await deleteCommentAsAdminAction(comment.id);
-                          if (result.success) {
-                            setIsLocallyDeleted(true);
-                            setShowMenu(false);
-                            // Refetch pour aligner le compteur `comments.length`
-                            // + retirer les réponses imbriquées éventuelles côté
-                            // parent (CommentSection re-render après refresh).
-                            router.refresh();
+                          setDeleteError(null);
+                          try {
+                            // Router vers la bonne action selon le rôle :
+                            //   - Auteur → deleteOwnCommentAction (filtre author_id=user.id)
+                            //   - Admin non-auteur → deleteCommentAction admin
+                            //     (policy `forum_comments_update_admin`, audit, notif)
+                            const result = isAuthor
+                              ? await deleteOwnCommentAction(comment.id)
+                              : await deleteCommentAsAdminAction(comment.id);
+                            if (result.success) {
+                              setIsLocallyDeleted(true);
+                              setShowMenu(false);
+                              router.refresh();
+                            } else {
+                              // Affiche l'erreur côté UI pour ne plus laisser
+                              // l'utilisatrice penser que le bouton ne fait rien.
+                              const msg = result.error ?? "Suppression échouée";
+                              setDeleteError(msg);
+                              console.error("[comment:delete] action failed", result);
+                            }
+                          } catch (err) {
+                            const msg = err instanceof Error ? err.message : String(err);
+                            setDeleteError(msg);
+                            console.error("[comment:delete] exception", err);
                           }
                         }}
                         title="Supprimer ce commentaire ?"
@@ -247,6 +255,25 @@ export function CommentItem({
             targetLabel={comment.author ? `Commentaire de @${comment.author.username}` : "Commentaire"}
           />
         </div>
+
+        {/* Bannière d'erreur suppression (visible tant que non-dismissée).
+            Sans ce feedback, une session expirée ou une RLS bloquante faisait
+            paraître le bouton Supprimer comme "cassé". */}
+        {deleteError && (
+          <div className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 px-3 py-2">
+            <p className="text-xs text-red-700 dark:text-red-400 flex-1">
+              Suppression impossible : {deleteError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setDeleteError(null)}
+              className="text-[10px] text-red-500 hover:text-red-700 shrink-0"
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Reply form (inline) */}
         {showReply && depth === 0 && (

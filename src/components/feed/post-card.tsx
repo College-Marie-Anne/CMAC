@@ -32,6 +32,9 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
   // attendre le re-fetch serveur ni le subscribe Realtime. Sans ça, le post
   // pouvait rester visible pendant plusieurs secondes après un delete.
   const [isLocallyDeleted, setIsLocallyDeleted] = useState(false);
+  // deleteError : rend visible un échec de l'action (session expirée, RLS…).
+  // Avant, l'échec était silencieux → l'utilisatrice concluait "ça ne marche pas".
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
   const isAuthor = post.author?.id === currentUserId;
   // Le menu s'affiche pour tout le monde (signalement dispo pour non-auteurs non-admin)
@@ -124,18 +127,24 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
                   {(isAuthor || isAdmin) && (
                     <DeleteConfirmDialog
                       onConfirm={async () => {
-                        // Route vers la bonne action selon le rôle — sans ça,
-                        // un admin qui supprime le post d'un autre échoue
-                        // silencieusement (deleteOwnPostAction filtre
-                        // author_id=user.id → 0 rows updated, success:true
-                        // trompeur). Même bug que celui des commentaires.
-                        const result = isAuthor
-                          ? await deleteOwnPostAction(post.id)
-                          : await deletePostAsAdminAction(post.id);
-                        if (result.success) {
-                          setIsLocallyDeleted(true);
-                          setShowMenu(false);
-                          router.refresh();
+                        setDeleteError(null);
+                        try {
+                          const result = isAuthor
+                            ? await deleteOwnPostAction(post.id)
+                            : await deletePostAsAdminAction(post.id);
+                          if (result.success) {
+                            setIsLocallyDeleted(true);
+                            setShowMenu(false);
+                            router.refresh();
+                          } else {
+                            const msg = result.error ?? "Suppression échouée";
+                            setDeleteError(msg);
+                            console.error("[post:delete] action failed", result);
+                          }
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : String(err);
+                          setDeleteError(msg);
+                          console.error("[post:delete] exception", err);
                         }
                       }}
                       trigger={
@@ -212,6 +221,23 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
         open={editOpen}
         onClose={() => setEditOpen(false)}
       />
+
+      {/* Bannière d'erreur suppression — ne plus laisser l'échec silencieux */}
+      {deleteError && (
+        <div className="mx-4 mb-3 flex items-start justify-between gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+          <p className="text-xs text-red-700 flex-1">
+            Suppression impossible : {deleteError}
+          </p>
+          <button
+            type="button"
+            onClick={() => setDeleteError(null)}
+            className="text-[10px] text-red-500 hover:text-red-700 shrink-0"
+            aria-label="Fermer"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </article>
   );
 }
