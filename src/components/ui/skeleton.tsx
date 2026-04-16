@@ -7,6 +7,33 @@ export function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * Barre de progression bordeaux animée en haut de l'écran. À placer dans les
+ * loading.tsx pour donner un signal visuel de chargement immanquable — les
+ * skeletons seuls (gris clair sur blanc) peuvent être perçus comme un "fond
+ * blanc" sur des navigations rapides.
+ *
+ * Animation CSS keyframe : la barre va de gauche à droite en 1.8s, en boucle.
+ * Implémentation : div fixed en haut + animation `loading-bar` définie dans
+ * globals.css.
+ */
+export function LoadingBar() {
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 h-[2px] z-50 overflow-hidden bg-cma-bordeaux/10"
+      aria-hidden="true"
+    >
+      <div
+        className="h-full bg-cma-bordeaux"
+        style={{
+          animation: "cmac-loading-bar 1.8s ease-in-out infinite",
+          width: "40%",
+        }}
+      />
+    </div>
+  );
+}
+
 export function KpiSkeleton() {
   return (
     <div className="rounded-2xl bg-white shadow-sm p-5 space-y-3">

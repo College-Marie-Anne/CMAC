@@ -185,3 +185,18 @@ input:-webkit-autofill:focus {
   -webkit-text-fill-color: white !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Barre de progression de chargement utilisée par <LoadingBar /> dans les
+   loading.tsx. Donne un signal visuel clair que la page se charge, au-delà
+   du simple skeleton qui peut être trop subtil sur nav rapide. */
+@keyframes cmac-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(250%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}

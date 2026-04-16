@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /support — match : header + section "Nouveau ticket" + liste
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SupportLoading() {
   return (
     <div className="min-h-screen bg-cma-gris" aria-busy="true">
+      <LoadingBar />
       {/* Header sticky */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">

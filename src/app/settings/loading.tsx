@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /settings — match : header + sections empilées (notifications,
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SettingsLoading() {
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950" aria-busy="true">
+      <LoadingBar />
       {/* Header sticky */}
       <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 h-14 flex items-center justify-between">
         <Skeleton className="h-8 w-24 rounded-lg" />

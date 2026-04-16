@@ -1,4 +1,4 @@
-import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
+import { Skeleton, CardSkeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /mentorship — match : header + sidebar (desktop) + main avec
@@ -7,6 +7,7 @@ import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 export default function MentorshipLoading() {
   return (
     <div className="min-h-screen bg-cma-gris" aria-busy="true">
+      <LoadingBar />
       {/* Header sticky */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">

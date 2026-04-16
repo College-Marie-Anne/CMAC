@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /notifications — match la structure : header avec retour +
@@ -10,6 +10,7 @@ export default function NotificationsLoading() {
       className="min-h-screen bg-cma-gris px-4 py-6 sm:px-6"
       aria-busy="true"
     >
+      <LoadingBar />
       <div className="mx-auto max-w-3xl">
         {/* Header : retour + tout marquer lu */}
         <div className="mb-4 flex items-center justify-between gap-3">

@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /messages — match la structure du MessagesShell :
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function MessagesLoading() {
   return (
     <div className="h-screen flex flex-col bg-white" aria-busy="true">
+      <LoadingBar />
       <div className="flex flex-1 min-h-0">
         {/* Sidebar conversation list (desktop) / pleine largeur (mobile) */}
         <aside className="w-full lg:w-80 xl:w-96 lg:shrink-0 lg:border-r lg:border-gray-100 flex flex-col">

@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, LoadingBar } from "@/components/ui/skeleton";
 
 /**
  * Skeleton de /profile/[username] — match : header retour + carte profil
@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function ProfileLoading() {
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950" aria-busy="true">
+      <LoadingBar />
       {/* Header sticky */}
       <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 h-14 flex items-center justify-between">
         <Skeleton className="h-6 w-20 rounded-lg" />
