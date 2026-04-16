@@ -34,6 +34,26 @@ export function ReactionBar({
   const [isPending, startTransition] = useTransition();
   const instanceId = useId();
 
+  // Resync quand le parent re-render avec de nouvelles valeurs serveur (ex :
+  // subscribe realtime dans PostFeed qui propage `forum_posts.reaction_count`
+  // après une réaction d'une autre utilisatrice, ou router.refresh).
+  // Sans ce resync, le state local `count` restait à la valeur du premier
+  // mount → le chiffre affiché divergeait de la réalité DB après quelques
+  // réactions croisées. "Le compte bug" observé venait de là.
+  useEffect(() => {
+    setCount(initialCount);
+  }, [initialCount]);
+
+  // Idem pour `active` (mes propres réactions) — resync si un admin retire
+  // une réaction, ou si la session bascule. La clé join(",") stabilise la
+  // dépendance : une nouvelle référence d'array avec le même contenu ne
+  // re-déclenche pas l'effet.
+  const activeKey = initialReactions.slice().sort().join(",");
+  useEffect(() => {
+    setActive(new Set(initialReactions));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey]);
+
   // Realtime : INSERT/DELETE de réactions par d'AUTRES utilisatrices sur ce
   // post/commentaire. On filtre côté client par user_id ≠ currentUserId car
   // nos propres réactions sont déjà gérées par l'optimistic update
