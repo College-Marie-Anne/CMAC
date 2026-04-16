@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useTransition, useId } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Archive, Loader2, MessageSquarePlus } from "lucide-react";
+import Link from "next/link";
+import { Archive, ArrowLeft, Loader2, MessageSquarePlus } from "lucide-react";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { MessagesEmptyState } from "./messages-empty-state";
 import { NewConversationDialog } from "./new-conversation-dialog";
@@ -145,12 +146,26 @@ export function ConversationList({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 p-3 shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-lg font-semibold text-gray-900">Messages</h1>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Back button — mobile only : la MessagesShell est full-screen sur
+                mobile, donc sans ce bouton il n'y a pas de moyen de revenir au
+                feed. Sur desktop, la sidebar principale gère la nav. */}
+            <Link
+              href="/feed"
+              className="lg:hidden p-2 -ml-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors shrink-0"
+              aria-label="Retour au feed"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <h1 className="text-lg font-semibold text-gray-900 truncate">
+              Messages
+            </h1>
+          </div>
           <button
             type="button"
             onClick={() => setNewConvOpen(true)}
-            className="p-2 rounded-xl bg-cma-bordeaux text-white hover:bg-cma-bordeaux-dark transition-colors"
+            className="p-2 rounded-xl bg-cma-bordeaux text-white hover:bg-cma-bordeaux-dark transition-colors shrink-0"
             aria-label="Nouvelle conversation"
           >
             <MessageSquarePlus size={18} />

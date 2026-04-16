@@ -10,11 +10,14 @@ export default function MessagesLoading() {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar conversation list (desktop) / pleine largeur (mobile) */}
         <aside className="w-full lg:w-80 xl:w-96 lg:shrink-0 lg:border-r lg:border-gray-100 flex flex-col">
-          {/* Header sticky : titre + bouton nouvelle conv */}
+          {/* Header sticky : back button mobile + titre + bouton nouvelle conv */}
           <div className="sticky top-0 z-10 bg-white border-b border-gray-100 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-9 w-9 rounded-xl" />
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Skeleton className="lg:hidden h-9 w-9 rounded-lg shrink-0" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+              <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
             </div>
           </div>
 
