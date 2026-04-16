@@ -40,3 +40,26 @@ export const editCommentSchema = z.object({
 });
 
 export type EditCommentData = z.infer<typeof editCommentSchema>;
+
+// XSS blocklist (aligné avec support.ts / moderation.ts)
+const XSS_BLOCKLIST = /[<>{}`]|javascript\s*:|data\s*:|vbscript\s*:|on\w+\s*=/i;
+
+// Spec §1370-1371 — tag forum :
+//   name : 1-50 caractères
+//   color : format hex #RGB / #RRGGBB / #RRGGBBAA (4-9 chars)
+export const tagSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom est requis")
+    .max(50, "Le nom doit faire 50 caractères maximum")
+    .refine((v) => !XSS_BLOCKLIST.test(v), "Caractères non autorisés"),
+  color: z
+    .string()
+    .regex(
+      /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3}([0-9A-Fa-f]{2})?)?$/,
+      "Couleur hex invalide (ex: #D4A017)"
+    ),
+});
+
+export type TagData = z.infer<typeof tagSchema>;

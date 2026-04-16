@@ -11,6 +11,7 @@ import {
   updatePromotionSchema,
   type UpdatePromotionData,
 } from "@/lib/validations/promo";
+import { tagSchema } from "@/lib/validations/forum";
 
 export type AdminActionResult = {
   success: boolean;
@@ -392,9 +393,15 @@ export async function createTagAction(
   try {
     const { supabase } = await requireAdmin();
 
+    // Validation Zod (spec §1370-1371)
+    const parsed = tagSchema.safeParse({ name, color });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
     const { error } = await supabase
       .from("forum_tags")
-      .insert({ name, color });
+      .insert({ name: parsed.data.name, color: parsed.data.color });
 
     if (error) {
       if (error.code === "23505")
@@ -419,13 +426,23 @@ export async function updateTagAction(
   try {
     const { supabase } = await requireAdmin();
 
+    // Validation Zod (spec §1370-1371)
+    const parsed = tagSchema.safeParse({ name, color });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
     const { error } = await supabase
       .from("forum_tags")
-      .update({ name, color })
+      .update({ name: parsed.data.name, color: parsed.data.color })
       .eq("id", tagId)
       .eq("is_system", false);
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      if (error.code === "23505")
+        return { success: false, error: "Un autre tag porte déjà ce nom" };
+      return { success: false, error: error.message };
+    }
 
     // Audit log auto via trigger (action 'update_tag').
 

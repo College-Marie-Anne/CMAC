@@ -7,12 +7,33 @@ import { QueryError } from "@/components/admin/query-error";
 export default async function TagsPage() {
   try {
     const supabase = await createClient();
-    const { data: tags, error } = await supabase
-      .from("forum_tags")
-      .select("id, name, color, is_system")
-      .order("name");
 
-    if (error) throw error;
+    // Fetch tags + tous les posts non-supprimés en parallèle (pour compteur).
+    const [tagsResult, postsResult] = await Promise.all([
+      supabase
+        .from("forum_tags")
+        .select("id, name, color, is_system")
+        .order("name"),
+      supabase.from("forum_posts").select("tag_id").eq("is_deleted", false),
+    ]);
+
+    if (tagsResult.error) throw tagsResult.error;
+
+    const tags = tagsResult.data ?? [];
+    const posts = postsResult.data ?? [];
+
+    // Compteur d'usage par tag_id — Map accumulée sans N+1
+    const usageByTag = new Map<string, number>();
+    for (const p of posts) {
+      if (p.tag_id) {
+        usageByTag.set(p.tag_id, (usageByTag.get(p.tag_id) ?? 0) + 1);
+      }
+    }
+
+    const tagsWithUsage = tags.map((t) => ({
+      ...t,
+      post_count: usageByTag.get(t.id) ?? 0,
+    }));
 
     return (
       <div className="space-y-6">
@@ -27,13 +48,17 @@ export default async function TagsPage() {
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                 <Tag size={24} className="text-gray-300" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-700 mb-2">Aucun tag</h2>
-              <p className="text-sm text-gray-400">Créez des tags pour catégoriser les posts</p>
+              <h2 className="text-lg font-semibold text-gray-700 mb-2">
+                Aucun tag
+              </h2>
+              <p className="text-sm text-gray-400">
+                Créez des tags pour catégoriser les posts
+              </p>
             </CardContent>
           </Card>
         ) : null}
 
-        <TagsManager tags={tags} />
+        <TagsManager tags={tagsWithUsage} />
       </div>
     );
   } catch (err) {

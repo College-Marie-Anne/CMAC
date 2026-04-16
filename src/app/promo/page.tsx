@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileProfileMenu } from "@/components/feed/mobile-profile-menu";
+import { NotificationsBellBadge } from "@/components/notifications/notifications-bell-badge";
 import { PromoProfileHeader } from "@/components/promo/promo-profile-header";
 import { ElectionWidget } from "@/components/promo/election-widget";
 import { SeedBadge } from "@/components/promo/seed-badge";
@@ -250,19 +251,7 @@ export default async function PromoPage() {
           <span className="text-sm font-semibold text-gray-900 hidden sm:block">Coin Promo</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/notifications"
-            className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-cma-bordeaux"
-            title="Notifications"
-            aria-label="Notifications"
-          >
-            <Bell size={18} />
-            {(unreadNotifCount ?? 0) > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-cma-bordeaux text-white text-[9px] font-bold flex items-center justify-center">
-                {(unreadNotifCount ?? 0) > 9 ? "9+" : unreadNotifCount}
-              </span>
-            )}
-          </Link>
+          <NotificationsBellBadge initialCount={unreadNotifCount ?? 0} />
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
       </header>
