@@ -1,5 +1,5 @@
-import { Resend } from "resend";
 import { env } from "@/lib/env";
+import { sendTransactionalEmail } from "./send";
 
 export type PendingRegistrationInfo = {
   /** Prénom de la nouvelle inscrite (pas l'admin destinataire). */
@@ -37,26 +37,12 @@ export async function sendAdminPendingRegistrationEmail({
   adminFirstName: string | null;
   newUser: PendingRegistrationInfo;
 }): Promise<void> {
-  const apiKey = env.resendApiKey;
-  if (!apiKey) {
-    console.warn(
-      "[email] RESEND_API_KEY non configuré — email admin pending ignoré"
-    );
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-
-  try {
-    await resend.emails.send({
-      from: "CMA Connect <noreply@cmaconnect.com>",
-      to,
-      subject: `Nouvelle inscription en attente — ${newUser.firstName} ${newUser.lastName}`,
-      html: buildHtml(adminFirstName, newUser, env.siteUrl),
-    });
-  } catch (err) {
-    console.error("[email] Échec envoi email admin pending:", err);
-  }
+  await sendTransactionalEmail({
+    to,
+    subject: `Nouvelle inscription en attente — ${newUser.firstName} ${newUser.lastName}`,
+    html: buildHtml(adminFirstName, newUser, env.siteUrl),
+    label: "admin-pending-registration",
+  });
 }
 
 /* ─── HTML template ─── */

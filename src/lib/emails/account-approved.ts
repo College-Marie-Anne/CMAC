@@ -1,15 +1,11 @@
-import { Resend } from "resend";
 import { env } from "@/lib/env";
+import { sendTransactionalEmail } from "./send";
 
 /**
  * Envoie l'email de confirmation d'approbation de compte.
  *
  * Déclenché par `approveUserAction` et `bulkApproveAction` après que l'admin
  * valide un compte pending.
- *
- * Non-bloquant : toute erreur est logguée mais jamais relancée — l'approbation
- * DB reste effective même si l'email tombe. Si `RESEND_API_KEY` n'est pas
- * configuré, l'envoi est silencieusement skippé (dev local).
  */
 export async function sendAccountApprovedEmail({
   to,
@@ -18,26 +14,12 @@ export async function sendAccountApprovedEmail({
   to: string;
   firstName: string;
 }): Promise<void> {
-  const apiKey = env.resendApiKey;
-  if (!apiKey) {
-    console.warn(
-      "[email] RESEND_API_KEY non configuré — email d'approbation ignoré"
-    );
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-
-  try {
-    await resend.emails.send({
-      from: "CMA Connect <noreply@cmaconnect.com>",
-      to,
-      subject: "Ton compte CMA Connect est approuvé ! 🎉",
-      html: buildHtml(firstName, env.siteUrl),
-    });
-  } catch (err) {
-    console.error("[email] Échec envoi email d'approbation:", err);
-  }
+  await sendTransactionalEmail({
+    to,
+    subject: "Ton compte CMA Connect est approuvé ! 🎉",
+    html: buildHtml(firstName, env.siteUrl),
+    label: "account-approved",
+  });
 }
 
 /* ─── HTML template ─── */

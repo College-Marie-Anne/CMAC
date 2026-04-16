@@ -48,4 +48,21 @@ export const env = {
   get resendApiKey(): string | null {
     return process.env.RESEND_API_KEY ?? null;
   },
+  /**
+   * Adresse d'expéditeur pour tous les emails transactionnels (welcome, approval,
+   * admin pending). Exemple : `"CMA Connect <noreply@cmaconnect.com>"`.
+   *
+   * ⚠ IMPORTANT : cette adresse DOIT appartenir à un domaine vérifié dans
+   * Resend (Dashboard → Domains). Sans vérification, Resend rejette avec un
+   * code d'erreur `validation_error` / `from_domain_not_verified` → l'email
+   * ne part jamais, même si le code tourne sans exception.
+   *
+   * Fallback : `onboarding@resend.dev` est un domaine pré-vérifié fourni par
+   * Resend, utile en dev / pendant qu'on vérifie notre propre domaine. Les
+   * emails passent, mais le "From" affiche "onboarding@resend.dev" ce qui
+   * n'est pas idéal en prod.
+   */
+  get emailFrom(): string {
+    return process.env.EMAIL_FROM ?? "CMA Connect <onboarding@resend.dev>";
+  },
 };

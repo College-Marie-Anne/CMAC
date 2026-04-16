@@ -1,12 +1,9 @@
-import { Resend } from "resend";
-import { env } from "@/lib/env";
+import { sendTransactionalEmail } from "./send";
 
 /**
- * Send the welcome email after successful registration.
- *
- * Non-blocking: errors are logged but never thrown so they don't
- * break the registration flow. If RESEND_API_KEY is not set the
- * call is silently skipped (local dev convenience).
+ * Envoie l'email "inscription reçue, en attente d'approbation" après un signUp
+ * non-invité. Utilise le helper centralisé `sendTransactionalEmail` qui lit
+ * correctement les erreurs Resend (cf. `./send.ts`).
  */
 export async function sendWelcomeEmail({
   to,
@@ -14,26 +11,13 @@ export async function sendWelcomeEmail({
 }: {
   to: string;
   firstName: string;
-}) {
-  const apiKey = env.resendApiKey;
-  if (!apiKey) {
-    console.warn("[email] RESEND_API_KEY non configuré — email de bienvenue ignoré");
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-
-  try {
-    await resend.emails.send({
-      from: "CMA Connect <noreply@cmaconnect.com>",
-      to,
-      subject: "Bienvenue sur CMA Connect ! 🎓",
-      html: buildWelcomeHtml(firstName),
-    });
-  } catch (err) {
-    // Never throw — the registration must succeed even if the email fails.
-    console.error("[email] Échec envoi email de bienvenue:", err);
-  }
+}): Promise<void> {
+  await sendTransactionalEmail({
+    to,
+    subject: "Bienvenue sur CMA Connect ! 🎓",
+    html: buildWelcomeHtml(firstName),
+    label: "welcome",
+  });
 }
 
 /* ─── HTML template ─── */
