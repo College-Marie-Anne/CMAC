@@ -15,6 +15,7 @@ import {
   Award,
   HeadphonesIcon,
   Settings,
+  ArrowLeft,
 } from "lucide-react";
 import { MentorshipStudentDashboard } from "@/components/mentorship/mentorship-dashboard-student";
 import { MentorshipAlumniDashboard } from "@/components/mentorship/mentorship-dashboard-alumni";
@@ -197,18 +198,44 @@ export default async function MentorshipPage() {
 
   return (
     <div className="min-h-screen bg-cma-gris">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
-            <Image src="/CMAC.jpeg" alt="CMA" width={32} height={32} className="object-cover scale-125" style={{ width: 32, height: 32 }} />
-          </div>
-          <span className="text-sm font-semibold text-gray-900 hidden sm:block">Mentorat</span>
+      {/* Header — back button mobile (absent avant) + logo/titre clickable */}
+      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Bouton retour : mobile uniquement. Sur desktop, la sidebar
+              gère déjà la nav vers /feed. */}
+          <Link
+            href="/feed"
+            className="lg:hidden p-2 -ml-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors shrink-0"
+            aria-label="Retour au feed"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          {/* Logo + titre cliquables → /feed (cohérent avec /promo) */}
+          <Link
+            href="/feed"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0"
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 hidden lg:block">
+              <Image
+                src="/CMAC.jpeg"
+                alt="CMA"
+                width={32}
+                height={32}
+                className="object-cover scale-125"
+                style={{ width: 32, height: 32 }}
+              />
+            </div>
+            <span className="text-sm font-semibold text-gray-900 truncate">
+              Mentorat
+            </span>
+          </Link>
         </div>
-        
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 shrink-0">
           <NotificationsBellBadge initialCount={unreadNotifCount ?? 0} />
-          <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
+          <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">
+            {initials}
+          </div>
         </div>
       </header>
 
@@ -271,8 +298,10 @@ export default async function MentorshipPage() {
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-4xl mx-auto w-full">
+        {/* Main content — animation d'entrée au mount (déclenchée à chaque
+            navigation vers cette page puisque Next.js App Router remount le
+            composant page). `tw-animate-css` est déjà importé dans globals.css. */}
+        <main className="flex-1 p-4 sm:p-6 max-w-4xl mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
           {isAlumni ? (
             <MentorshipAlumniDashboard 
               currentUserId={user.id} 
