@@ -150,7 +150,25 @@
       "Bash(grep -l -i \"preload\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/**/*.md)",
       "Bash(grep -l -i \"ReactDOM.preload\\\\|rel=\\\\\"preload\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/**/*.md C:/Projets/CMAC/node_modules/next/dist/docs/01-app/*.md)",
       "mcp__88666a83-7d43-4763-85d3-a8860a918e79__execute_sql",
-      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__get_logs"
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__get_logs",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__get_advisors",
+      "Bash(python3 -c 'import json,sys; d=json.load\\(sys.stdin\\); lints=json.loads\\(d[0]['\\\\''text'\\\\'']\\)['\\\\''result'\\\\'']['\\\\''lints'\\\\''];:*)",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__list_migrations",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('name:',d.get\\('name'\\)\\); print\\('scripts:'\\); [print\\(f'  {k}: {v}'\\) for k,v in d.get\\('scripts',{}\\).items\\(\\)]; print\\('deps count:',len\\(d.get\\('dependencies',{}\\)\\)\\); print\\('devdeps count:',len\\(d.get\\('devDependencies',{}\\)\\)\\)\")",
+      "Bash(python3 -c ':*)",
+      "Bash(grep -c \"if.*!user\\\\|redirect.*login\\\\|getUser\" C:/Projets/CMAC/src/app/**/*page.tsx)",
+      "Bash(grep -v \":0$\")",
+      "Bash(ls C:/Projets/CMAC/sentry*)",
+      "Bash(cat C:/Projets/CMAC/instrumentation*.ts)",
+      "Bash(cat C:/Projets/CMAC/sentry.*.config.ts)",
+      "Bash(ls C:/Projets/CMAC/instrumentation*)",
+      "Bash(ls C:/Projets/CMAC/src/instrumentation*)",
+      "Bash(grep -rn \"sentry.client\\\\|instrumentation\" C:/Projets/CMAC/src C:/Projets/CMAC/*.ts)",
+      "Bash(grep -v \"^--$\")",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__apply_migration",
+      "Bash(grep -rn \"export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/dist/esm/server/*.d.ts)",
+      "Bash(grep -l \"^export.*\\\\\"after\\\\\"\\\\|^export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/*.d.ts)",
+      "Bash(grep -rn \"\\\\\"after\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after*)"
     ]
   }
 }

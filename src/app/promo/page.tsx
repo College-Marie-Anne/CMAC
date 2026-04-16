@@ -359,6 +359,7 @@ export default async function PromoPage() {
           username={profile.username}
           themePreference={profile.theme_preference ?? "system"}
           unreadNotifications={unreadNotifCount ?? 0}
+          isAdmin={isAdmin}
         />
       </nav>
       <div className="lg:hidden h-14" />

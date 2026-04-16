@@ -18,6 +18,7 @@ import {
   checkRateLimit,
   sanitizeIp,
 } from "@/lib/rate-limit";
+import { env } from "@/lib/env";
 
 export type PasswordResult = {
   success: boolean;
@@ -50,12 +51,11 @@ export async function forgotPasswordAction(
 
   const supabase = await createClient();
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
+  // Doit être whitelisté dans Supabase Dashboard → Auth → Redirect URLs.
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,
     {
-      redirectTo: `${siteUrl}/auth/callback?next=/auth/reset-password`,
+      redirectTo: `${env.siteUrl}/auth/callback?next=/auth/reset-password`,
     }
   );
 

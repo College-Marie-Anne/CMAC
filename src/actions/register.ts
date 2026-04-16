@@ -5,30 +5,16 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import type { RegisterFormData } from "@/lib/validations/register";
 import { registerLimiter, checkRateLimit, sanitizeIp } from "@/lib/rate-limit";
 import { sendWelcomeEmail } from "@/lib/emails/welcome";
+import { env } from "@/lib/env";
 
 export type RegisterResult = {
   success: boolean;
   error?: string;
 };
-
-/**
- * Reconstruit l'origine de la requête (ex: https://cmaconnect.app).
- * Priorité : NEXT_PUBLIC_SITE_URL env var > x-forwarded-* headers > host header.
- * Utilisé pour `emailRedirectTo` de signUp → le lien dans l'email pointera
- * vers notre domaine réel (pas celui du projet Supabase).
- */
-function resolveOrigin(h: Headers): string {
-  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (envUrl) return envUrl.replace(/\/$/, "");
-
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host =
-    h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  return `${proto}://${host}`;
-}
 
 export async function registerAction(
   data: RegisterFormData,
@@ -46,7 +32,11 @@ export async function registerAction(
     };
   }
 
-  const origin = resolveOrigin(h);
+  // `env.siteUrl` = source de vérité (NEXT_PUBLIC_SITE_URL → VERCEL_URL → localhost).
+  // IMPORTANT : cette URL DOIT être whitelistée dans le dashboard Supabase Auth
+  // (Redirect URLs), sinon Supabase ignore `emailRedirectTo` et retombe sur le
+  // Site URL par défaut du projet — qui par défaut est localhost:3000.
+  const origin = env.siteUrl;
   const supabase = await createClient();
   // Admin client obligatoire pour les INSERTs ci-dessous : après signUp avec
   // confirmation email activée, l'utilisatrice N'EST PAS authentifiée (pas de
@@ -372,12 +362,26 @@ export async function registerAction(
     }
   }
 
-  // ─── 9. Email de bienvenue (non bloquant) ───
+  // ─── 9. Email de bienvenue (non bloquant, post-response) ───
+  //
+  // Skip pour les invited users : leur compte est directement 'active', donc
+  // le message "Notre équipe examine actuellement votre demande d'adhésion"
+  // serait incorrect. Elles reçoivent déjà l'email de vérification Supabase
+  // et peuvent se connecter immédiatement.
+  //
+  // `after()` (Next 16) garantit que l'envoi s'exécute APRÈS que la response
+  // soit envoyée, y compris après le `redirect()` ci-dessous. Sans ça, le
+  // serverless runtime pouvait couper la promise avant que Resend soit
+  // appelé → emails silencieusement perdus.
 
-  sendWelcomeEmail({
-    to: step3.email,
-    firstName: step1.first_name,
-  });
+  if (!inviteValid) {
+    after(async () => {
+      await sendWelcomeEmail({
+        to: step3.email,
+        firstName: step1.first_name,
+      });
+    });
+  }
 
   // ─── 10. Déconnexion (sécurité — pas de session locale après signUp) ───
 

@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   resetPasswordSchema,
   type ResetPasswordData,
@@ -12,6 +14,7 @@ import {
   type UpdatePromotionData,
 } from "@/lib/validations/promo";
 import { tagSchema } from "@/lib/validations/forum";
+import { sendAccountApprovedEmail } from "@/lib/emails/account-approved";
 
 export type AdminActionResult = {
   success: boolean;
@@ -116,6 +119,15 @@ export async function approveUserAction(
     const notFound = await requireTargetProfile(supabase, userId);
     if (notFound) return { success: false, error: notFound };
 
+    // Récupère first_name AVANT l'UPDATE pour l'email. Le fetch après l'UPDATE
+    // marcherait aussi mais la RLS pourrait filtrer les comptes 'pending' selon
+    // la politique de select — on sécurise en lisant maintenant.
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("first_name")
+      .eq("id", userId)
+      .maybeSingle();
+
     const { error } = await supabase
       .from("profiles")
       .update({ status: "active" })
@@ -127,13 +139,38 @@ export async function approveUserAction(
     // Audit log : inséré automatiquement par trigger trg_audit_profiles_update
     // (migration 020) — action 'approve_user' détectée via la transition status.
 
-    // Notification account_approved (non-opt-out → preference_field: null)
+    // Notification in-app (non-opt-out → preference_field: null)
     await supabase.rpc("notify_user", {
       p_recipient: userId,
       p_type: "account_approved",
       p_reference_id: userId,
       p_content: "Votre compte a été approuvé. Bienvenue sur CMA Connect !",
       p_preference_field: null,
+    });
+
+    // Email de confirmation (non-bloquant — l'approbation DB est déjà
+    // effective). L'email de l'utilisatrice vit dans auth.users donc on
+    // passe par l'admin client qui bypass la RLS.
+    //
+    // `after()` garantit que l'envoi s'exécute après la response : sans ça,
+    // le runtime Vercel pouvait couper la promise avant que Resend soit
+    // appelé (bug silencieux signalé par l'équipe admin).
+    const firstName = targetProfile?.first_name ?? null;
+    after(async () => {
+      try {
+        const admin = createAdminClient();
+        const { data: authRes } = await admin.auth.admin.getUserById(userId);
+        const email = authRes?.user?.email;
+        if (email && firstName) {
+          await sendAccountApprovedEmail({ to: email, firstName });
+        } else {
+          console.warn(
+            `[approveUserAction] email ou first_name manquant pour ${userId}, email skip`
+          );
+        }
+      } catch (emailErr) {
+        console.error("[approveUserAction] envoi email failed:", emailErr);
+      }
     });
 
     revalidatePath("/admin/approvals");
@@ -175,6 +212,19 @@ export async function bulkApproveAction(
   try {
     const { supabase } = await requireAdmin();
 
+    // Fetch first_names AVANT l'UPDATE pour pouvoir envoyer les emails après.
+    const { data: targetProfiles } = await supabase
+      .from("profiles")
+      .select("id, first_name")
+      .in("id", userIds)
+      .eq("status", "pending");
+
+    const firstNameMap = new Map<string, string>(
+      (targetProfiles ?? [])
+        .filter((p): p is { id: string; first_name: string } => !!p.first_name)
+        .map((p) => [p.id, p.first_name])
+    );
+
     const { error } = await supabase
       .from("profiles")
       .update({ status: "active" })
@@ -183,8 +233,58 @@ export async function bulkApproveAction(
 
     if (error) return { success: false, error: error.message };
 
-    // Audit log : N entrées 'approve_user' individuelles générées par trigger
-    // (plus granulaire que 'bulk_approve' — même admin + même timestamp = bulk inféré).
+    // Audit log : N entrées 'approve_user' individuelles générées par trigger.
+
+    // Notifications in-app : on les envoie AVANT la response car on veut
+    // qu'elles soient visibles immédiatement après le revalidate.
+    try {
+      await Promise.all(
+        userIds.map((id) =>
+          supabase.rpc("notify_user", {
+            p_recipient: id,
+            p_type: "account_approved",
+            p_reference_id: id,
+            p_content: "Votre compte a été approuvé. Bienvenue sur CMA Connect !",
+            p_preference_field: null,
+          })
+        )
+      );
+    } catch (notifErr) {
+      console.error("[bulkApproveAction] notifs partiellement échouées:", notifErr);
+    }
+
+    // Emails : après la response via `after()` pour ne pas bloquer l'admin
+    // tout en garantissant que Resend soit réellement appelé (le runtime
+    // sinon pouvait couper les promises fire-and-forget).
+    after(async () => {
+      try {
+        const admin = createAdminClient();
+        const emailResults = await Promise.all(
+          userIds.map(async (id) => {
+            const { data: authRes } = await admin.auth.admin.getUserById(id);
+            return { id, email: authRes?.user?.email ?? null };
+          })
+        );
+
+        await Promise.all(
+          emailResults.map(({ id, email }) => {
+            const firstName = firstNameMap.get(id);
+            if (!email || !firstName) {
+              console.warn(
+                `[bulkApproveAction] email ou first_name manquant pour ${id}, skip`
+              );
+              return Promise.resolve();
+            }
+            return sendAccountApprovedEmail({ to: email, firstName });
+          })
+        );
+      } catch (emailErr) {
+        console.error(
+          "[bulkApproveAction] envoi emails échoué:",
+          emailErr
+        );
+      }
+    });
 
     revalidatePath("/admin/approvals");
     return { success: true };

@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { ConversationList } from "@/components/messages/conversation-list";
+import { MessagesShell } from "@/components/messages/messages-shell";
 import type { Conversation } from "@/lib/types/messaging";
 import type { Metadata } from "next";
 
@@ -32,12 +32,12 @@ export default async function MessagesLayout({
     redirect("/login");
   }
 
-  // Admins are excluded from messaging per RLS spec
+  // Admins sont exclus de la messagerie (RLS spec)
   if (profile.role === "admin") {
     redirect("/feed");
   }
 
-  // Fetch conversations
+  // Fetch des conversations UNE SEULE FOIS (plus de duplication avec page.tsx).
   const { data: rawConvs } = await supabase
     .from("conversations")
     .select("id, participant_1, participant_2, last_message_at, archived_by_1, archived_by_2")
@@ -48,12 +48,10 @@ export default async function MessagesLayout({
   let conversations: Conversation[] = [];
 
   if (rawConvs && rawConvs.length > 0) {
-    // Get other participant IDs
     const otherIds = rawConvs.map((c) =>
       c.participant_1 === user.id ? c.participant_2 : c.participant_1
     );
 
-    // Fetch participant profiles
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, first_name, last_name, username, avatar_url, last_seen_at")
@@ -61,7 +59,6 @@ export default async function MessagesLayout({
 
     const profileMap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
 
-    // Fetch last message for each conversation (for preview)
     const convIds = rawConvs.map((c) => c.id);
     const { data: lastMessages } = await supabase
       .from("direct_messages")
@@ -80,7 +77,6 @@ export default async function MessagesLayout({
       }
     }
 
-    // Fetch unread counts
     const { data: unreadRows } = await supabase
       .from("direct_messages")
       .select("conversation_id")
@@ -123,25 +119,12 @@ export default async function MessagesLayout({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      {/* Desktop split-view / Mobile full-screen */}
-      <div className="flex flex-1 min-h-0">
-        {/* Sidebar — conversation list */}
-        {/* On desktop: always visible as a sidebar */}
-        {/* On mobile: visible only on /messages (hidden when a conversation is open) */}
-        <aside className="w-full lg:w-80 xl:w-96 lg:shrink-0 lg:border-r lg:border-gray-100 lg:flex lg:flex-col hidden lg:!flex">
-          <ConversationList
-            initialConversations={conversations}
-            initialHasMore={(rawConvs?.length ?? 0) === 20}
-            currentUserId={user.id}
-          />
-        </aside>
-
-        {/* Main content area */}
-        <main className="flex-1 flex flex-col min-w-0">
-          {children}
-        </main>
-      </div>
-    </div>
+    <MessagesShell
+      conversations={conversations}
+      initialHasMore={(rawConvs?.length ?? 0) === 20}
+      currentUserId={user.id}
+    >
+      {children}
+    </MessagesShell>
   );
 }
