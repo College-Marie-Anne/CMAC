@@ -319,19 +319,19 @@ export async function createCommentAction(
     if (!parsed.success)
       return { success: false, error: parsed.error.issues[0].message };
 
-    // If replying to a comment, verify parent is top-level (depth 0)
+    // Vérifier que le parent existe. On autorise les réponses à toute
+    // profondeur (reply sur reply OK) — l'affichage reste aplati à depth=1
+    // côté SSR via `rootOf()`. La structure DB garde parent_id pointant vers
+    // le parent direct pour préserver la chaîne de conversation.
     if (parsed.data.parent_id) {
       const { data: parent, error: parentErr } = await supabase
         .from("forum_comments")
-        .select("parent_id")
+        .select("id")
         .eq("id", parsed.data.parent_id)
         .single();
 
       if (parentErr || !parent)
         return { success: false, error: "Commentaire parent introuvable" };
-
-      if (parent.parent_id !== null)
-        return { success: false, error: "Les réponses imbriquées ne sont pas autorisées" };
     }
 
     const { error } = await supabase.from("forum_comments").insert({

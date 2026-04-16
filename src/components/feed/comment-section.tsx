@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { CommentForm } from "./comment-form";
 import { CommentItem } from "./comment-item";
@@ -125,8 +125,59 @@ export function CommentSection({
     };
   }, [postId, instanceId]);
 
-  // Group: top-level comments (parent_id is null) with replies nested
-  const topLevel = comments.filter((c) => !c.parent_id);
+  // Aplatissement à depth=1 : toute réponse (même reply-sur-reply) est
+  // attachée au commentaire top-level ancestor. Sans ça, une reply ajoutée
+  // via Realtime INSERT restait dans `comments[]` mais n'apparaissait sous
+  // aucun parent → invisible côté UI.
+  //
+  // Mémoisé pour éviter de re-calculer à chaque render tant que `comments`
+  // ne change pas. Aligné sur la logique SSR dans /feed/[postId]/page.tsx.
+  const topLevel = useMemo(() => {
+    const byId = new Map(comments.map((c) => [c.id, c]));
+    const findRoot = (c: ForumComment): ForumComment | null => {
+      let cur: ForumComment = c;
+      const seen = new Set<string>();
+      while (cur.parent_id) {
+        if (seen.has(cur.id)) return null;
+        seen.add(cur.id);
+        const parent = byId.get(cur.parent_id);
+        if (!parent) return null;
+        cur = parent;
+      }
+      return cur;
+    };
+
+    const roots: ForumComment[] = [];
+    const orphans: ForumComment[] = [];
+    const repliesByRoot = new Map<string, ForumComment[]>();
+
+    for (const c of comments) {
+      if (!c.parent_id) {
+        // Clone pour ne pas muter le state d'origine (et repartir des replies vides)
+        roots.push({ ...c, replies: [] });
+        continue;
+      }
+      const root = findRoot(c);
+      if (!root) {
+        orphans.push({ ...c, replies: [] });
+        continue;
+      }
+      if (!repliesByRoot.has(root.id)) repliesByRoot.set(root.id, []);
+      repliesByRoot.get(root.id)!.push(c);
+    }
+
+    for (const r of roots) {
+      r.replies = repliesByRoot.get(r.id) ?? [];
+    }
+    // Les orphans (parent soft-deleted ou invisible) deviennent top-level
+    const combined = [...roots, ...orphans];
+    // Tri chronologique ascendant (cohérent avec le fetch SSR)
+    combined.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    return combined;
+  }, [comments]);
 
   return (
     <div className="space-y-4">

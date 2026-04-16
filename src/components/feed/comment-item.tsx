@@ -136,16 +136,14 @@ export function CommentItem({
                     userReactions={comment.user_reactions}
                     currentUserId={currentUserId}
                   />
-                  {depth === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowReply(!showReply)}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      <Reply size={12} />
-                      Répondre
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowReply(!showReply)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    <Reply size={12} />
+                    Répondre
+                  </button>
                 </div>
               )}
             </div>
@@ -275,8 +273,11 @@ export function CommentItem({
           </div>
         )}
 
-        {/* Reply form (inline) */}
-        {showReply && depth === 0 && (
+        {/* Reply form (inline) — disponible à toute profondeur. L'affichage
+            reste plat (depth=1 max) : toutes les réponses, même les réponses
+            à des réponses, apparaissent sous le commentaire top-level via
+            l'aplatissement SSR. */}
+        {showReply && (
           <div className="mt-3 ml-10">
             <CommentForm
               postId={postId}
