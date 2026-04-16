@@ -396,16 +396,24 @@ export async function generateInvitationLinkAction(): Promise<ProfileActionResul
     if (profile.role !== "alumni")
       return { success: false, error: "Seules les alumni peuvent générer des liens" };
 
-    // Check max 5 active links
-    const { count } = await supabase
+    // Check max 5 liens actifs simultanément (slots encore dispo + non-révoqué
+    // + non-expiré). Depuis la migration 032, un lien peut accepter jusqu'à
+    // max_uses inscriptions — un lien avec used_count < max_uses reste actif
+    // même après 1-9 utilisations. On filtre par `used_count < max_uses`
+    // plutôt que `is_used=false` (source de vérité plus fiable, résiste aux
+    // rows legacy avec état incohérent).
+    const { data: activeRows } = await supabase
       .from("invitation_links")
-      .select("id", { count: "exact", head: true })
+      .select("id, used_count, max_uses")
       .eq("inviter_id", user.id)
-      .eq("is_used", false)
       .eq("is_revoked", false)
       .gt("expires_at", new Date().toISOString());
 
-    if ((count ?? 0) >= 5)
+    const activeCount = (activeRows ?? []).filter(
+      (r) => r.used_count < r.max_uses
+    ).length;
+
+    if (activeCount >= 5)
       return { success: false, error: "Maximum 5 liens actifs. Attendez qu'un lien expire." };
 
     const expiresAt = new Date();
@@ -417,7 +425,7 @@ export async function generateInvitationLinkAction(): Promise<ProfileActionResul
         inviter_id: user.id,
         expires_at: expiresAt.toISOString(),
       })
-      .select("id, token, expires_at")
+      .select("id, token, expires_at, is_revoked, created_at, max_uses, used_count")
       .single();
 
     if (error) return { success: false, error: error.message };

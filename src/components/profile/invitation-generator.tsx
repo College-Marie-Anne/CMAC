@@ -90,12 +90,19 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
   // is_revoked=true en DB mais le lien restait affiché comme "Actif" jusqu'à
   // navigation/reload → l'utilisatrice pensait que la révocation ne marchait pas.
   const [locallyRevoked, setLocallyRevoked] = useState<Set<string>>(new Set());
+  // Liens créés localement mais pas encore reflétés dans la prop SSR (router
+  // refresh en route). On les affiche tels quels pour que l'utilisatrice
+  // voit IMMÉDIATEMENT le nouveau lien après un generate, sans clignotement
+  // "apparaît puis disparaît le temps que le SSR se rafraîchisse".
+  const [locallyCreated, setLocallyCreated] = useState<InvitationLinkItem[]>([]);
   const router = useRouter();
 
-  // Cleanup : purge le Set une fois que la prop SSR confirme is_revoked=true
-  // pour le lien. Sans ça, `locallyRevoked` grossit indéfiniment et peut
-  // causer un flicker "révoqué → actif → révoqué" si la prop arrive avec
-  // des données intermédiaires (cas rare de race entre DB commit et fetch).
+  // Cleanup du Set "locallyRevoked" : purge quand la prop SSR confirme
+  // is_revoked=true. Évite que le Set grossisse indéfiniment et élimine
+  // le risque de flicker.
+  // Cleanup aussi de "locallyCreated" : quand la prop contient déjà un lien
+  // avec le même id, on retire notre placeholder local (la prop est
+  // la source de vérité).
   useEffect(() => {
     setLocallyRevoked((prev) => {
       if (prev.size === 0) return prev;
@@ -103,18 +110,29 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
       let changed = false;
       for (const id of prev) {
         const link = invitations.find((l) => l.id === id);
-        if (link?.is_revoked) {
-          next.delete(id);
-          changed = true;
-        } else if (!link) {
-          // Le lien n'existe plus dans la prop (supprimé) → on peut purger aussi
+        if (link?.is_revoked || !link) {
           next.delete(id);
           changed = true;
         }
       }
       return changed ? next : prev;
     });
+
+    setLocallyCreated((prev) => {
+      if (prev.length === 0) return prev;
+      const serverIds = new Set(invitations.map((l) => l.id));
+      const filtered = prev.filter((l) => !serverIds.has(l.id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
   }, [invitations]);
+
+  // Liste effective affichée = props SSR ∪ liens créés localement non encore
+  // dans la prop. Dédup par id au cas où.
+  const allInvitations = (() => {
+    if (locallyCreated.length === 0) return invitations;
+    const seen = new Set(invitations.map((l) => l.id));
+    return [...invitations, ...locallyCreated.filter((l) => !seen.has(l.id))];
+  })();
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -125,14 +143,14 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
     locallyRevoked.has(link.id) ? "revoked" : getStatus(link);
 
   // Tri : actifs d'abord, puis utilisés / expirés / révoqués (les plus récents en haut).
-  const sorted = [...invitations].sort((a, b) => {
+  const sorted = [...allInvitations].sort((a, b) => {
     const aActive = effectiveStatus(a) === "active" ? 0 : 1;
     const bActive = effectiveStatus(b) === "active" ? 0 : 1;
     if (aActive !== bActive) return aActive - bActive;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const activeCount = invitations.filter((l) => effectiveStatus(l) === "active").length;
+  const activeCount = allInvitations.filter((l) => effectiveStatus(l) === "active").length;
   const atLimit = activeCount >= MAX_ACTIVE_LINKS;
 
   const handleGenerate = () => {
@@ -143,10 +161,36 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
         setError(result.error ?? "Erreur lors de la génération");
         return;
       }
-      // router.refresh() obligatoire : l'action fait revalidatePath() côté
-      // serveur (marque le cache comme stale), mais sans refresh client le
-      // Server Component parent n'est PAS re-fetché dans la session courante.
-      // Résultat : le nouveau lien reste invisible jusqu'à une navigation.
+      // Optimistic insert : l'action retourne le row complet, on l'ajoute
+      // immédiatement à locallyCreated pour que l'UI affiche le nouveau lien
+      // SANS attendre le router.refresh (qui peut prendre 300–500 ms). Le
+      // useEffect retirera ce placeholder quand la prop SSR arrive avec le
+      // même id.
+      const raw = result.data as
+        | {
+            id: string;
+            token: string;
+            expires_at: string;
+            is_revoked: boolean;
+            created_at: string;
+            max_uses: number;
+            used_count: number;
+          }
+        | null
+        | undefined;
+      if (raw) {
+        const newLink: InvitationLinkItem = {
+          id: raw.id,
+          token: raw.token,
+          expires_at: raw.expires_at,
+          is_revoked: raw.is_revoked,
+          created_at: raw.created_at,
+          max_uses: raw.max_uses,
+          used_count: raw.used_count,
+          uses: [],
+        };
+        setLocallyCreated((prev) => [newLink, ...prev]);
+      }
       router.refresh();
     });
   };
