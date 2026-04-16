@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Link2,
@@ -92,6 +92,30 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
   const [locallyRevoked, setLocallyRevoked] = useState<Set<string>>(new Set());
   const router = useRouter();
 
+  // Cleanup : purge le Set une fois que la prop SSR confirme is_revoked=true
+  // pour le lien. Sans ça, `locallyRevoked` grossit indéfiniment et peut
+  // causer un flicker "révoqué → actif → révoqué" si la prop arrive avec
+  // des données intermédiaires (cas rare de race entre DB commit et fetch).
+  useEffect(() => {
+    setLocallyRevoked((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of prev) {
+        const link = invitations.find((l) => l.id === id);
+        if (link?.is_revoked) {
+          next.delete(id);
+          changed = true;
+        } else if (!link) {
+          // Le lien n'existe plus dans la prop (supprimé) → on peut purger aussi
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [invitations]);
+
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   // Applique l'optimistic revoke : un lien dans `locallyRevoked` est affiché
@@ -116,10 +140,14 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
     startGenerate(async () => {
       const result = await generateInvitationLinkAction();
       if (!result.success) {
-        setError(result.error ?? "Erreur");
+        setError(result.error ?? "Erreur lors de la génération");
+        return;
       }
-      // La page va revalider via revalidatePath("/profile/edit") côté action
-      // → la liste se met à jour automatiquement.
+      // router.refresh() obligatoire : l'action fait revalidatePath() côté
+      // serveur (marque le cache comme stale), mais sans refresh client le
+      // Server Component parent n'est PAS re-fetché dans la session courante.
+      // Résultat : le nouveau lien reste invisible jusqu'à une navigation.
+      router.refresh();
     });
   };
 
