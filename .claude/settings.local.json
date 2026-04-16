@@ -176,7 +176,8 @@
       "Bash(echo \"exit page dir=$?\")",
       "Bash(rm -rf .next)",
       "Bash(echo \"exit grep=$?\")",
-      "Bash(echo \"exit find=$?\")"
+      "Bash(echo \"exit find=$?\")",
+      "Bash(grep -n \"rounded-2xl\\\\|return\\\\|min-h-screen\" C:/Projets/CMAC/src/app/profile/[username]/page.tsx)"
     ]
   }
 }
