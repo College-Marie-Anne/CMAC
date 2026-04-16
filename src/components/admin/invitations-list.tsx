@@ -17,12 +17,13 @@ type ProfileRef = { id: string; first_name: string; last_name: string; username:
 type InvLink = {
   id: string;
   token: string;
-  is_used: boolean;
   is_revoked: boolean;
   expires_at: string;
   created_at: string;
+  max_uses: number;
+  used_count: number;
   inviter: ProfileRef | ProfileRef[];
-  used_by_profile: ProfileRef | ProfileRef[];
+  uses: { name: string; username: string; used_at: string }[];
 };
 
 function unwrap<T>(val: T | T[] | null): T | null {
@@ -32,20 +33,20 @@ function unwrap<T>(val: T | T[] | null): T | null {
 
 function getStatus(link: InvLink): { label: string; color: string } {
   if (link.is_revoked) return { label: "Révoqué", color: "text-red-500 bg-red-50" };
-  if (link.is_used) return { label: "Utilisé", color: "text-green-600 bg-green-50" };
+  if (link.used_count >= link.max_uses) return { label: "Épuisé", color: "text-blue-600 bg-blue-50" };
   if (new Date(link.expires_at) < new Date()) return { label: "Expiré", color: "text-gray-500 bg-gray-100" };
-  return { label: "Actif", color: "text-blue-600 bg-blue-50" };
+  return { label: "Actif", color: "text-green-600 bg-green-50" };
 }
 
 export function InvitationsList({ links }: { links: InvLink[] }) {
-  const [filter, setFilter] = useState<"all" | "active" | "used" | "expired" | "revoked">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "full" | "expired" | "revoked">("all");
   const [isPending, startTransition] = useTransition();
 
   const filtered = links.filter((l) => {
     if (filter === "all") return true;
     const s = getStatus(l);
     if (filter === "active") return s.label === "Actif";
-    if (filter === "used") return s.label === "Utilisé";
+    if (filter === "full") return s.label === "Épuisé";
     if (filter === "expired") return s.label === "Expiré";
     if (filter === "revoked") return s.label === "Révoqué";
     return true;
@@ -60,7 +61,7 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
-        {(["all", "active", "used", "expired", "revoked"] as const).map((f) => (
+        {(["all", "active", "full", "expired", "revoked"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -70,7 +71,7 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
           >
-            {f === "all" ? "Tous" : f === "active" ? "Actifs" : f === "used" ? "Utilisés" : f === "expired" ? "Expirés" : "Révoqués"}
+            {f === "all" ? "Tous" : f === "active" ? "Actifs" : f === "full" ? "Épuisés" : f === "expired" ? "Expirés" : "Révoqués"}
           </button>
         ))}
       </div>
@@ -78,15 +79,14 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
       <div className="space-y-3">
         {filtered.map((link) => {
           const inviter = unwrap(link.inviter);
-          const usedBy = unwrap(link.used_by_profile);
           const status = getStatus(link);
 
           return (
             <Card key={link.id} className="rounded-2xl border-0 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Link2 size={14} className="text-gray-400 shrink-0" />
                       <span className="text-xs font-mono text-gray-500 truncate">
                         {link.token.slice(0, 8)}...
@@ -96,15 +96,30 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
                       >
                         {status.label}
                       </span>
+                      <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {link.used_count}/{link.max_uses}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       <User size={10} />
                       Invitée par {inviter ? `@${inviter.username}` : "Inconnu"}
                     </div>
-                    {usedBy && (
-                      <div className="flex items-center gap-1.5 text-xs text-green-600">
-                        <CheckCircle2 size={10} />
-                        Utilisé par @{usedBy.username}
+                    {link.uses.length > 0 && (
+                      <div className="text-xs text-gray-500 pt-1">
+                        <div className="flex items-center gap-1.5 text-green-600 mb-1">
+                          <CheckCircle2 size={10} />
+                          {link.uses.length} inscription(s) via ce lien :
+                        </div>
+                        <ul className="space-y-0.5 pl-3 border-l-2 border-gray-200">
+                          {link.uses.map((u, i) => (
+                            <li key={i} className="text-gray-600">
+                              @{u.username || "—"}
+                              <span className="text-gray-400 ml-1.5">
+                                · {new Date(u.used_at).toLocaleDateString("fr-FR")}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                     <div className="flex gap-3 text-[10px] text-gray-400">

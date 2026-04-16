@@ -24,10 +24,14 @@ export type InvitationLinkItem = {
   id: string;
   token: string;
   expires_at: string;
-  is_used: boolean;
   is_revoked: boolean;
   created_at: string;
-  used_by_name: string | null;
+  /** Plafond d'usages — 10 par défaut (migration 032). */
+  max_uses: number;
+  /** Nombre d'inscriptions ayant utilisé ce lien. */
+  used_count: number;
+  /** Liste des invitées triée par ordre d'inscription (la plus ancienne d'abord). */
+  uses: { name: string; used_at: string }[];
 };
 
 interface InvitationGeneratorProps {
@@ -35,11 +39,11 @@ interface InvitationGeneratorProps {
   invitations: InvitationLinkItem[];
 }
 
-type LinkStatus = "active" | "used" | "expired" | "revoked";
+type LinkStatus = "active" | "full" | "expired" | "revoked";
 
 function getStatus(link: InvitationLinkItem): LinkStatus {
   if (link.is_revoked) return "revoked";
-  if (link.is_used) return "used";
+  if (link.used_count >= link.max_uses) return "full";
   if (new Date(link.expires_at).getTime() < Date.now()) return "expired";
   return "active";
 }
@@ -54,8 +58,8 @@ const STATUS_META: Record<
     bg: "rgba(0,107,63,0.10)",
     icon: CheckCircle2,
   },
-  used: {
-    label: "Utilisé",
+  full: {
+    label: "Épuisé",
     color: "#1f7ad8",
     bg: "rgba(31,122,216,0.10)",
     icon: Check,
@@ -135,8 +139,8 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
             <Link2 size={16} /> Liens d&apos;invitation
           </h3>
           <p className="text-xs text-gray-500 mt-1">
-            Générez un lien pour inviter une ancienne élève. Le lien expire après
-            7 jours et ne peut être utilisé qu&apos;une seule fois.
+            Générez un lien pour inviter des anciennes élèves. Le lien expire
+            après 7 jours et peut être utilisé par jusqu&apos;à 10 personnes.
           </p>
         </div>
         <span
@@ -214,13 +218,26 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
                   {siteUrl}/register/invite/{link.token.slice(0, 8)}…
                 </code>
 
-                {link.used_by_name && (
-                  <p className="text-[11px] text-gray-500 mb-2">
-                    Utilisé par{" "}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {link.used_by_name}
-                    </span>
-                  </p>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {link.used_count}/{link.max_uses}
+                  </span>{" "}
+                  inscriptions via ce lien
+                </p>
+
+                {link.uses.length > 0 && (
+                  <ul className="text-[11px] text-gray-500 mb-2 space-y-0.5 pl-1 border-l-2 border-gray-200 dark:border-gray-700 ml-1">
+                    {link.uses.map((u, i) => (
+                      <li key={i} className="pl-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {u.name}
+                        </span>
+                        <span className="text-gray-400 ml-1">
+                          · {new Date(u.used_at).toLocaleDateString("fr-FR")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
 
                 {status === "active" && (

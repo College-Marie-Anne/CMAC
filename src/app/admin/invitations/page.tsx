@@ -11,9 +11,8 @@ export default async function InvitationsPage() {
     const { data: links, count, error } = await supabase
       .from("invitation_links")
       .select(
-        `id, token, is_used, is_revoked, expires_at, created_at,
-         inviter:inviter_id(id, first_name, last_name, username),
-         used_by_profile:used_by(id, first_name, last_name, username)`,
+        `id, token, is_revoked, expires_at, created_at, max_uses, used_count,
+         inviter:inviter_id(id, first_name, last_name, username)`,
         { count: "exact" }
       )
       .order("created_at", { ascending: false })
@@ -21,21 +20,69 @@ export default async function InvitationsPage() {
 
     if (error) throw error;
 
-    const activeCount = links.filter(
-      (l) => !l.is_used && !l.is_revoked && new Date(l.expires_at) > new Date()
+    // Fetch des usages de chaque lien (une ligne par inscrite, jusqu'à
+    // max_uses par lien). Migration 032 a introduit invitation_link_uses.
+    const linkIds = links.map((l) => l.id);
+    const usesByLink = new Map<
+      string,
+      { name: string; username: string; used_at: string }[]
+    >();
+
+    if (linkIds.length > 0) {
+      const { data: uses } = await supabase
+        .from("invitation_link_uses")
+        .select(
+          "invitation_link_id, used_at, user:user_id(first_name, last_name, username)"
+        )
+        .in("invitation_link_id", linkIds)
+        .order("used_at", { ascending: true });
+
+      type UseRow = {
+        invitation_link_id: string;
+        used_at: string;
+        user: {
+          first_name: string | null;
+          last_name: string | null;
+          username: string | null;
+        } | null;
+      };
+      for (const u of (uses ?? []) as unknown as UseRow[]) {
+        const list = usesByLink.get(u.invitation_link_id) ?? [];
+        list.push({
+          name: `${u.user?.first_name ?? ""} ${u.user?.last_name ?? ""}`.trim() || "Utilisatrice",
+          username: u.user?.username ?? "",
+          used_at: u.used_at,
+        });
+        usesByLink.set(u.invitation_link_id, list);
+      }
+    }
+
+    const enrichedLinks = links.map((l) => ({
+      ...l,
+      uses: usesByLink.get(l.id) ?? [],
+    }));
+
+    const activeCount = enrichedLinks.filter(
+      (l) =>
+        l.used_count < l.max_uses &&
+        !l.is_revoked &&
+        new Date(l.expires_at) > new Date()
     ).length;
-    const usedCount = links.filter((l) => l.is_used).length;
+    const fullCount = enrichedLinks.filter(
+      (l) => l.used_count >= l.max_uses
+    ).length;
+    const totalUses = enrichedLinks.reduce((s, l) => s + l.used_count, 0);
 
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invitations</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {count ?? 0} lien(s) &middot; {activeCount} actif(s) &middot; {usedCount} utilisé(s)
+            {count ?? 0} lien(s) &middot; {activeCount} actif(s) &middot; {fullCount} épuisé(s) &middot; {totalUses} inscription(s) via lien
           </p>
         </div>
 
-        {links.length === 0 ? (
+        {enrichedLinks.length === 0 ? (
           <Card className="rounded-2xl border-0 shadow-sm">
             <CardContent className="p-12 text-center">
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -46,7 +93,7 @@ export default async function InvitationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <InvitationsList links={links} />
+          <InvitationsList links={enrichedLinks} />
         )}
       </div>
     );

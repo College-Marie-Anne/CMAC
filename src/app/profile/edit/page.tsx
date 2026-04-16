@@ -60,7 +60,9 @@ export default async function ProfileEditPage() {
     isAlumni
       ? supabase
           .from("invitation_links")
-          .select("id, token, expires_at, is_used, is_revoked, created_at, used_by")
+          .select(
+            "id, token, expires_at, is_revoked, created_at, max_uses, used_count"
+          )
           .eq("inviter_id", user.id)
           .order("created_at", { ascending: false })
           .limit(30)
@@ -69,10 +71,10 @@ export default async function ProfileEditPage() {
             id: string;
             token: string;
             expires_at: string;
-            is_used: boolean;
             is_revoked: boolean;
             created_at: string;
-            used_by: string | null;
+            max_uses: number;
+            used_count: number;
           }>,
         }),
   ]);
@@ -80,32 +82,49 @@ export default async function ProfileEditPage() {
   const selectedActivityIds = (profileActivities ?? []).map((r) => r.activity_id);
   const desiredFieldNames = (desiredFields ?? []).map((r) => r.field_name);
 
-  // Résolution des noms used_by (un seul SELECT batch sur les profils invités).
+  // Résolution des invitées via la table de jonction invitation_link_uses
+  // (une ligne par inscrite : jusqu'à max_uses entrées par lien).
   let invitations: InvitationLinkItem[] = [];
   if (isAlumni && rawInvitations && rawInvitations.length > 0) {
-    const usedByIds = rawInvitations
-      .map((l) => l.used_by)
-      .filter((id): id is string => Boolean(id));
+    const linkIds = rawInvitations.map((l) => l.id);
 
+    const { data: uses } = await supabase
+      .from("invitation_link_uses")
+      .select("invitation_link_id, user_id, used_at")
+      .in("invitation_link_id", linkIds)
+      .order("used_at", { ascending: true });
+
+    const userIds = [...new Set((uses ?? []).map((u) => u.user_id))];
     const nameById = new Map<string, string>();
-    if (usedByIds.length > 0) {
+    if (userIds.length > 0) {
       const { data: invitedProfiles } = await supabase
         .from("profiles")
         .select("id, first_name, last_name")
-        .in("id", usedByIds);
+        .in("id", userIds);
       for (const p of invitedProfiles ?? []) {
         nameById.set(p.id, `${p.first_name} ${p.last_name}`.trim());
       }
+    }
+
+    const usesByLink = new Map<string, { name: string; used_at: string }[]>();
+    for (const u of uses ?? []) {
+      const list = usesByLink.get(u.invitation_link_id) ?? [];
+      list.push({
+        name: nameById.get(u.user_id) ?? "Utilisatrice",
+        used_at: u.used_at,
+      });
+      usesByLink.set(u.invitation_link_id, list);
     }
 
     invitations = rawInvitations.map((l) => ({
       id: l.id,
       token: l.token,
       expires_at: l.expires_at,
-      is_used: l.is_used,
       is_revoked: l.is_revoked,
       created_at: l.created_at,
-      used_by_name: l.used_by ? nameById.get(l.used_by) ?? null : null,
+      max_uses: l.max_uses,
+      used_count: l.used_count,
+      uses: usesByLink.get(l.id) ?? [],
     }));
   }
 
