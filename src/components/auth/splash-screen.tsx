@@ -29,10 +29,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     // Attendre que le navigateur ait réellement peint le composant
     // (après que le splash natif PWA ait disparu).
     // requestAnimationFrame x2 garantit que le frame a été rendu à l'écran.
-    let raf1: number;
     let raf2: number;
 
-    raf1 = requestAnimationFrame(() => {
+    const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         // Maintenant le splash React est visible → lancer le timer
         timerRef.current = setTimeout(() => {

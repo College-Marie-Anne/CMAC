@@ -163,7 +163,7 @@ export default async function PromoPage() {
   // ─── Batch 2 : posts + DM count (dépendent de batch 1) ───
   const convIds = (convsResult.data ?? []).map((c) => c.id);
 
-  const [postsResult, commentsResult, reactionsResult, dmResult] =
+  const [postsResult, , , dmResult] =
     await Promise.all([
       supabase
         .from("forum_posts")
@@ -309,7 +309,8 @@ export default async function PromoPage() {
             <PromoProfileHeader 
               promo={{
                 ...promoData,
-                leader: Array.isArray(promoData.leader) ? promoData.leader[0] : (promoData.leader as any)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              leader: Array.isArray(promoData.leader) ? promoData.leader[0] : (promoData.leader as any)
               } as PromotionData} 
               memberCount={memberCount || 0} 
             />

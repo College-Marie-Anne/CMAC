@@ -2,7 +2,7 @@
 
 import { useTransition, useState } from "react";
 import Image from "next/image";
-import { Vote, Trophy, Loader2, CheckCircle2 } from "lucide-react";
+import { Vote, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { voteCandidateAction } from "@/actions/promo";
 import type { PromoCandidate } from "@/lib/types/promo";
@@ -11,7 +11,6 @@ interface CandidateCardProps {
   candidate: PromoCandidate;
   electionId: string;
   isVotingPhase: boolean;
-  hasVoted: boolean;
   isCurrentUser: boolean;
   currentVoteId?: string | null;
 }
@@ -20,7 +19,6 @@ export function CandidateCard({
   candidate,
   electionId,
   isVotingPhase,
-  hasVoted,
   isCurrentUser,
   currentVoteId
 }: CandidateCardProps) {
@@ -74,7 +72,7 @@ export function CandidateCard({
         {/* Pitch */}
         <div className="w-full bg-gray-50 rounded-xl p-3 mb-4 min-h-[80px]">
           <p className="text-xs text-gray-700 leading-relaxed italic">
-            "{candidate.pitch || "Aucune présentation fournie"}"
+            &quot;{candidate.pitch || "Aucune présentation fournie"}&quot;
           </p>
         </div>
 

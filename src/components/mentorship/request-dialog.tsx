@@ -157,7 +157,7 @@ export function RequestDialog({ open, onClose, mentor, studyFields }: RequestDia
 
               {/* Message */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700">Message d'introduction</label>
+                <label className="text-xs font-semibold text-gray-700">Message d&apos;introduction</label>
                 <div className="relative">
                   <Textarea
                     value={content}

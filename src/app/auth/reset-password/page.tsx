@@ -25,7 +25,6 @@ export default function ResetPasswordPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<ResetPasswordData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: typedResolver<ResetPasswordData>(resetPasswordSchema),
     defaultValues: { password: "", confirm_password: "" },
   });

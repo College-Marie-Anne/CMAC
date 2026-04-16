@@ -1090,10 +1090,11 @@ function Step2S4Form({
   onBack: () => void;
   onNext: (data: Step2S4Data) => void;
 }) {
-  const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<Step2S4Data>({
+  const { register: _register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<Step2S4Data>({
     resolver: typedResolver<Step2S4Data>(step2S4Schema),
     defaultValues: defaultValues ?? { promotion_name: "", promo_start_date: 0 as number, filiere: undefined, activities: [], desired_study_fields: [] },
   });
+  void _register;
 
   const selectedActivities = watch("activities");
   const desiredFields = watch("desired_study_fields");
@@ -1215,10 +1216,11 @@ function Step2StudentForm({
   onBack: () => void;
   onNext: (data: Step2StudentData) => void;
 }) {
-  const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<Step2StudentData>({
+  const { register: _register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<Step2StudentData>({
     resolver: typedResolver<Step2StudentData>(step2StudentSchema),
     defaultValues: defaultValues ?? { class: undefined, enrollment_date: 0 as number, activities: [], desired_study_fields: [] },
   });
+  void _register;
 
   const selectedClass = watch("class");
   const enrollmentDate = watch("enrollment_date");

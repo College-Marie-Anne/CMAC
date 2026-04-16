@@ -52,7 +52,7 @@ export function ReportDialog({
   // Reset form state chaque fois que le modal (re-)ouvre
   useEffect(() => {
     if (open) {
-      setReason("");
+      setReason(""); // eslint-disable-line react-hooks/set-state-in-effect
       setError(null);
       setSuccess(false);
     }

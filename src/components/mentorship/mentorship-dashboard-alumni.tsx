@@ -42,7 +42,7 @@ export function MentorshipAlumniDashboard({
           </div>
         ) : (
            <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm">
-             <p className="text-gray-900 font-semibold mb-1">Aucune demande de mentorat pour l'instant</p>
+             <p className="text-gray-900 font-semibold mb-1">Aucune demande de mentorat pour l&apos;instant</p>
              <p className="text-sm text-gray-400">Les demandes ciblées ou ouvertes dans votre domaine apparaîtront ici.</p>
            </div>
         )}

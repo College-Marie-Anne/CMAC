@@ -25,7 +25,6 @@ export default function ForgotPasswordPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<ForgotPasswordData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: typedResolver<ForgotPasswordData>(forgotPasswordSchema),
     defaultValues: { email: "" },
   });

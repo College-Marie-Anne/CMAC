@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { X, ImagePlus, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -168,10 +169,13 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
               {/* Image */}
               {imagePreview ? (
                 <div className="relative">
-                  <img
+                  <Image
                     src={imagePreview}
                     alt="Aperçu"
+                    width={400}
+                    height={192}
                     className="w-full max-h-48 object-cover rounded-xl"
+                    unoptimized
                   />
                   <button
                     type="button"

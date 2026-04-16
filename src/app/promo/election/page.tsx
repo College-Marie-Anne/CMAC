@@ -1,11 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
-import { 
-  ChevronLeft, 
-  Vote, 
-  Calendar, 
+import {
+  ChevronLeft,
+  Vote,
+  Calendar,
   AlertCircle,
   Info
 } from "lucide-react";
@@ -13,7 +12,7 @@ import { CandidateCard } from "@/components/promo/candidate-card";
 import { CandidacyForm } from "@/components/promo/candidacy-form";
 import { syncElectionStateAction } from "@/actions/promo";
 import { timeAgo } from "@/lib/time-ago";
-import type { PromoElection, PromoCandidate } from "@/lib/types/promo";
+import type { PromoCandidate } from "@/lib/types/promo";
 
 export const metadata = {
   title: "Élection Chef de Promo — CMA Connect",
@@ -126,8 +125,8 @@ export default async function ElectionPage() {
             <AlertCircle size={20} className="text-cma-or shrink-0" />
             <div className="text-xs text-gray-700 leading-relaxed">
               <p className="font-bold text-cma-or mb-0.5">Scrutin menacé</p>
-              Un minimum de **2 candidates** est requis pour valider l'élection. Actuellement : **{candidates.length}/2**. 
-              En l'absence de candidate supplémentaire, l'élection sera automatiquement annulée à la clôture.
+              Un minimum de **2 candidates** est requis pour valider l&apos;élection. Actuellement : **{candidates.length}/2**.
+              En l&apos;absence de candidate supplémentaire, l&apos;élection sera automatiquement annulée à la clôture.
             </div>
           </div>
         )}
@@ -166,7 +165,6 @@ export default async function ElectionPage() {
                 candidate={cand}
                 electionId={election.id}
                 isVotingPhase={isVoting}
-                hasVoted={!!userVote}
                 isCurrentUser={cand.candidate_id === user.id}
                 currentVoteId={userVote?.promo_candidate_id}
               />

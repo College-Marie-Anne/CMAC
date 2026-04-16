@@ -35,6 +35,7 @@ export default async function AdminLayout({
   // Vérifier inactivité > 2h
   if (profile.last_seen_at) {
     const lastSeen = new Date(profile.last_seen_at).getTime();
+    // eslint-disable-next-line react-hooks/purity
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     if (lastSeen < twoHoursAgo) {
       await supabase.auth.signOut();

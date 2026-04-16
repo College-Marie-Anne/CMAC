@@ -7,7 +7,6 @@ interface SeedBadgeProps {
 }
 
 export function SeedBadge({ enrollmentYear }: SeedBadgeProps) {
-  const currentYear = new Date().getFullYear();
   // We assume CMA S1-S3 cycle is roughly 3 years after enrollment
   const cycleStr = `${enrollmentYear}-${enrollmentYear + 3}`;
 
@@ -18,7 +17,7 @@ export function SeedBadge({ enrollmentYear }: SeedBadgeProps) {
       </div>
       <h2 className="text-xl font-bold text-gray-900 mb-2">Graine de CMA {cycleStr}</h2>
       <p className="text-sm text-gray-500 max-w-sm">
-        Votre promotion n'est pas encore formalisée. Continuez à grandir avec le CMA ! 
+        Votre promotion n&apos;est pas encore formalisée. Continuez à grandir avec le CMA !
         Le Coin Promo et les Élections seront disponibles lors de votre passage en S4.
       </p>
       

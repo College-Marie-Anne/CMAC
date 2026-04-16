@@ -202,7 +202,7 @@ export function ConversationThread({
         }
       });
     });
-  }, [hasMore, isLoadingMore, messages, conversationId]);
+  }, [hasMore, isLoadingMore, messages, conversationId, currentUserId]);
 
   // Handle scroll to top for loading more
   const handleScroll = useCallback(() => {

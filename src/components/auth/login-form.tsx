@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/form-resolver";
@@ -30,17 +30,14 @@ export function LoginForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [needsDob, setNeedsDob] = useState(false);
   const [needsOtp, setNeedsOtp] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  // Message de succès post-inscription via lien d'invitation (?invited=1)
-  useEffect(() => {
+  const [successMsg] = useState<string | null>(() => {
+    // Message de succès post-inscription via lien d'invitation (?invited=1)
     if (searchParams.get("invited") === "1") {
-      setSuccessMsg(
-        "Inscription réussie ! Ton compte est activé. Connecte-toi avec tes identifiants."
-      );
+      return "Inscription réussie ! Ton compte est activé. Connecte-toi avec tes identifiants.";
     }
-  }, [searchParams]);
+    return null;
+  });
+  const [isPending, startTransition] = useTransition();
 
   const {
     register,

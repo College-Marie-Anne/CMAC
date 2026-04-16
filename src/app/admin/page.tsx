@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import {
-  Users, UserPlus, Clock, TrendingUp, Handshake, MessageSquare,
-  Vote, UserX, Bell, ShieldAlert, Timer,
+  Users, UserPlus, Clock, TrendingUp,
 } from "lucide-react";
 import { KpiCard } from "@/components/admin/charts/kpi-card";
 import { DashboardCharts } from "@/components/admin/dashboard-charts";
@@ -92,6 +91,7 @@ async function render(
   // Type helper
   const _bq = supabase.from("profiles").select("id", { count: "exact", head: true });
   type PQ = typeof _bq;
+  void _bq;
   const pc = (extra?: (q: PQ) => PQ) => {
     let q: PQ = supabase.from("profiles").select("id", { count: "exact", head: true }).in("role", roles);
     if (validPromoId) q = q.eq("promo_id", validPromoId);

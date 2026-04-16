@@ -139,7 +139,9 @@
       "Bash(grep -r \"notify_user\\\\|notify_promo_members\\\\|INSERT INTO notifications\" supabase/migrations/*.sql)",
       "Bash(grep -r \"notification_type.*=\" supabase/migrations/*.sql)",
       "Bash(grep \"notify_promo_members\\\\|PERFORM notify_user\" supabase/migrations/*.sql)",
-      "Bash(grep -A 20 \"TYPE notification_type\" supabase/migrations/*.sql)"
+      "Bash(grep -A 20 \"TYPE notification_type\" supabase/migrations/*.sql)",
+      "Read(//c/tmp/**)",
+      "Bash(npx --no-install next lint -- --dir src)"
     ]
   }
 }

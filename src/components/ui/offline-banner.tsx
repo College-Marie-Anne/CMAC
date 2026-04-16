@@ -12,12 +12,11 @@ import { motion, AnimatePresence } from "framer-motion";
  * Disparaît automatiquement quand la connexion revient.
  */
 export function OfflineBanner() {
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(
+    () => typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
 
   useEffect(() => {
-    // Vérifier l'état initial (au cas où déjà offline au montage)
-    setIsOffline(!navigator.onLine);
-
     const goOffline = () => setIsOffline(true);
     const goOnline = () => setIsOffline(false);
 

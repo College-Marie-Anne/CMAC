@@ -3,7 +3,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { promoCandidacySchema } from "@/lib/validations/promo";
-import type { ElectionStatus } from "@/lib/types/promo";
 
 /**
  * Moteur Lazy : vérifie les dates de l'élection en cours et passe aux étapes suivantes si nécessaire.
@@ -73,7 +72,7 @@ export async function syncElectionStateAction(promoId: string) {
         const maxVotes = candidates[0].vote_count;
         const tied = candidates.filter((c) => c.vote_count === maxVotes);
         
-        tied.sort((a: any, b: any) => new Date(a.profiles.created_at).getTime() - new Date(b.profiles.created_at).getTime());
+        tied.sort((a: { profiles: { created_at: string }[] }, b: { profiles: { created_at: string }[] }) => new Date(a.profiles[0].created_at).getTime() - new Date(b.profiles[0].created_at).getTime());
         
         const winnerId = tied[0].candidate_id;
 
@@ -104,9 +103,9 @@ export async function syncElectionStateAction(promoId: string) {
 
     if (updated) revalidatePath("/promo");
     return { success: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Sync election state error:", err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -155,8 +154,8 @@ export async function startElectionAction() {
 
     revalidatePath("/promo");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -192,8 +191,8 @@ export async function submitCandidacyAction(electionId: string, formData: FormDa
 
     revalidatePath("/promo/election");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -212,8 +211,8 @@ export async function removeCandidacyAction(electionId: string) {
      if (error) throw error;
      revalidatePath("/promo/election");
      return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -268,7 +267,7 @@ export async function voteCandidateAction(electionId: string, candidateId: strin
 
     revalidatePath("/promo/election");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }

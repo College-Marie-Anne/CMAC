@@ -6,7 +6,6 @@ import { UserAvatar } from "@/components/feed/user-avatar";
 import { ProfileBadges } from "@/components/profile/profile-badges";
 import { ProfileModerationActions } from "@/components/moderation/profile-moderation-actions";
 import { timeAgo } from "@/lib/time-ago";
-import type { ProfileFull } from "@/lib/types/profile";
 
 export default async function ProfilePage({
   params,

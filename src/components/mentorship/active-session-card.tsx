@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { timeAgo } from "@/lib/time-ago";
 import { MessageSquare, FlagOff, Loader2 } from "lucide-react";
-import type { MentorshipSession, MentorshipProfile } from "@/lib/types/mentorship";
+import type { MentorshipSession } from "@/lib/types/mentorship";
 import { useTransition, useState } from "react";
 import { terminateMentorshipSessionAction } from "@/actions/mentorship";
 import Link from "next/link";

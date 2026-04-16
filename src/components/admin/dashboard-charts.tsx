@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import {
   Handshake, MessageSquare, Vote, Users, UserX,
-  FileText, FileSpreadsheet, ShieldAlert, Timer, Bell, MessagesSquare,
+  FileText, FileSpreadsheet, ShieldAlert, Timer, MessagesSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/admin/charts/kpi-card";

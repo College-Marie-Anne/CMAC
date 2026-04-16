@@ -36,7 +36,7 @@ export function YearSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const allYears = useMemo(generateYears, []);
+  const allYears = useMemo(() => generateYears(), []);
 
   const filtered = useMemo(
     () =>

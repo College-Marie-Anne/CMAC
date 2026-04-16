@@ -48,7 +48,7 @@ export function MentorshipStudentDashboard({
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-1">Votre parcours de mentorat</h2>
-          <p className="text-sm text-gray-500">Bénéficiez de l'expérience de nos Alumni.</p>
+          <p className="text-sm text-gray-500">Bénéficiez de l&apos;expérience de nos Alumni.</p>
         </div>
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-2 mb-1">
@@ -138,7 +138,7 @@ export function MentorshipStudentDashboard({
           <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center">
              <p className="text-gray-900 font-semibold mb-2">Trouvez une mentor dans votre domaine</p>
              <p className="text-sm text-gray-500 max-w-md mb-4 px-4">
-               Créez une demande ouverte pour que toutes les Alumni de vos domaines d'intérêt puissent vous épauler.
+               Créez une demande ouverte pour que toutes les Alumni de vos domaines d&apos;intérêt puissent vous épauler.
              </p>
              <Button
                 onClick={handleOpenRequest}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { ArrowLeft, X } from "lucide-react";
 
 /**
@@ -24,7 +25,7 @@ export function RetourButton() {
   useEffect(() => {
     // Détecte une ouverture via target="_blank" (window.opener défini et non fermé)
     if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
-      setIsNewTab(true);
+      setIsNewTab(true); // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, []);
 
@@ -48,7 +49,7 @@ export function RetourButton() {
   };
 
   return (
-    <a
+    <Link
       href="/"
       onClick={handleClick}
       className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
@@ -56,6 +57,6 @@ export function RetourButton() {
     >
       {isNewTab ? <X size={16} /> : <ArrowLeft size={16} />}
       {isNewTab ? "Fermer" : "Retour"}
-    </a>
+    </Link>
   );
 }

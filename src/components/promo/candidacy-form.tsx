@@ -53,7 +53,7 @@ export function CandidacyForm({ electionId, isCandidate, existingPitch }: Candid
         </p>
         
         <div className="mt-4 p-4 bg-white rounded-xl border border-gray-100 text-left italic text-sm text-gray-600">
-          "{existingPitch || "Aucune présentation"}"
+          &quot;{existingPitch || "Aucune présentation"}&quot;
         </div>
 
         <Button

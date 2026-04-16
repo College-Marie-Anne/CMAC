@@ -36,16 +36,12 @@ function markSplashSeen() {
 
 export default function Home() {
   const router = useRouter();
-  const [showSplash, setShowSplash] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return shouldShowSplash();
+  });
+  const [ready] = useState(() => typeof window !== "undefined");
   const [redirecting, setRedirecting] = useState(false);
-
-  useEffect(() => {
-    if (shouldShowSplash()) {
-      setShowSplash(true);
-    }
-    setReady(true);
-  }, []);
 
   const handleSplashComplete = () => {
     markSplashSeen();

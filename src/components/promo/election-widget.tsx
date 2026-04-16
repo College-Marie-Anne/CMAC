@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { Vote, ChevronRight, AlertCircle, Loader2, Play } from "lucide-react";
+import { Vote, ChevronRight, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { startElectionAction } from "@/actions/promo";
 import { timeAgo } from "@/lib/time-ago";
@@ -45,7 +45,7 @@ export function ElectionWidget({ election, hasLeader }: ElectionWidgetProps) {
           className="bg-cma-or hover:bg-cma-or/90 text-white rounded-xl h-11 px-6 gap-2 shrink-0 w-full sm:w-auto"
         >
           {isPending ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-          Lancer l'élection
+          Lancer l&apos;élection
         </Button>
       </div>
     );

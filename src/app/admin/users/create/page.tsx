@@ -9,7 +9,7 @@ import { UserPlus, Loader2, AlertCircle, CheckCircle2, Copy } from "lucide-react
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { createAdminAction } from "@/actions/admin";
 
@@ -42,7 +42,6 @@ export default function CreateAdminPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<CreateAdminData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: typedResolver<CreateAdminData>(createAdminSchema),
     defaultValues: { first_name: "", last_name: "", email: "", username: "", temp_password: "" },
   });

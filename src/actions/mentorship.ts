@@ -81,8 +81,8 @@ export async function sendMentorshipRequestAction(formData: FormData) {
 
     revalidatePath("/mentorship");
     return { success: true, data: request };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Erreur interne" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -122,8 +122,8 @@ export async function acceptMentorshipRequestAction(requestId: string) {
 
     revalidatePath("/mentorship");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Erreur interne" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -170,8 +170,8 @@ export async function declineMentorshipRequestAction(requestId: string) {
 
     revalidatePath("/mentorship");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Erreur interne" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }
 
@@ -211,7 +211,7 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
 
     revalidatePath("/mentorship");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Erreur interne" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
   }
 }

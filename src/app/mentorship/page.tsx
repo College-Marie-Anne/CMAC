@@ -5,7 +5,6 @@ import { MobileProfileMenu } from "@/components/feed/mobile-profile-menu";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  LayoutDashboard,
   Search,
   Users,
   GraduationCap,
@@ -154,7 +153,7 @@ export default async function MentorshipPage() {
         .in("study_field", studyFields);
       
       const potentialMentorsIds = (matchingEdu || [])
-        .map(e => Array.isArray(e.profile) ? (e.profile as any)[0]?.id : (e.profile as any)?.id)
+        .map(e => Array.isArray(e.profile) ? (e.profile as unknown as { id: string }[])[0]?.id : (e.profile as unknown as { id: string } | null)?.id)
         .filter(Boolean) as string[];
 
       if (potentialMentorsIds.length > 0) {
@@ -180,7 +179,7 @@ export default async function MentorshipPage() {
 
           const eduMap = new Map();
           matchingEdu?.forEach(e => {
-            const pId = Array.isArray(e.profile) ? (e.profile as any)[0]?.id : (e.profile as any)?.id;
+            const pId = Array.isArray(e.profile) ? (e.profile as unknown as { id: string }[])[0]?.id : (e.profile as unknown as { id: string } | null)?.id;
             if (pId && !eduMap.has(pId)) eduMap.set(pId, e.study_field);
           });
 

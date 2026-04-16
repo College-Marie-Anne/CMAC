@@ -22,8 +22,6 @@ export function LogoutButton({ variant = "feed" }: LogoutButtonProps) {
 
   const feedClass =
     "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-gray-50 transition-colors w-full";
-  const adminClass =
-    "w-full justify-start gap-2 text-xs h-9 rounded-lg";
 
   return (
     <>

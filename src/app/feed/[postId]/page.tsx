@@ -64,7 +64,6 @@ export default async function PostDetailPage({
 
   // Fetch user reactions for post + all comments
   const commentIds = (rawComments ?? []).map((c) => c.id);
-  const allIds = [postId, ...commentIds];
 
   const [{ data: postReactions }, { data: commentReactions }] = await Promise.all([
     supabase

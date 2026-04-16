@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Clock, User, AlertCircle, Tag } from "lucide-react";
+import { ArrowLeft, Clock, User, Tag } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TicketActions } from "@/components/admin/ticket-actions";
