@@ -262,8 +262,8 @@ export default async function FeedPage({
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
+        {/* Main content avec animation d'entrée (tw-animate-css) */}
+        <main className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
           <MobileQuickLinks />
           <PostFeed
             initialPosts={posts}

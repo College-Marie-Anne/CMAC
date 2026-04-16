@@ -14,6 +14,7 @@ import {
   Bell,
   AlertCircle,
   LifeBuoy,
+  ArrowLeft,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileProfileMenu } from "@/components/feed/mobile-profile-menu";
@@ -84,7 +85,7 @@ export default async function PromoPage() {
             </span>
           </Link>
         </header>
-        <main className="flex flex-col items-center justify-center p-6 mt-12">
+        <main className="flex flex-col items-center justify-center p-6 mt-12 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
           {isStudent ? (
             <SeedBadge enrollmentYear={enrollmentYear} />
           ) : (
@@ -254,15 +255,27 @@ export default async function PromoPage() {
 
   return (
     <div className="min-h-screen bg-cma-gris">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
-            <Image src="/CMAC.jpeg" alt="CMA" width={32} height={32} className="object-cover scale-125" style={{ width: 32, height: 32 }} />
-          </div>
-          <span className="text-sm font-semibold text-gray-900 hidden sm:block">Coin Promo</span>
+      {/* Header — back button mobile + logo/titre clickable vers /feed */}
+      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link
+            href="/feed"
+            className="lg:hidden p-2 -ml-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors shrink-0"
+            aria-label="Retour au feed"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <Link
+            href="/feed"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0"
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 hidden lg:block">
+              <Image src="/CMAC.jpeg" alt="CMA" width={32} height={32} className="object-cover scale-125" style={{ width: 32, height: 32 }} />
+            </div>
+            <span className="text-sm font-semibold text-gray-900 truncate">Coin Promo</span>
+          </Link>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <NotificationsBellBadge initialCount={unreadNotifCount ?? 0} />
           <div className="w-8 h-8 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-xs font-semibold">{initials}</div>
         </div>
@@ -304,8 +317,8 @@ export default async function PromoPage() {
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
+        {/* Main content avec animation d'entrée (tw-animate-css) */}
+        <main className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
           {promoData && (
             <PromoProfileHeader 
               promo={{

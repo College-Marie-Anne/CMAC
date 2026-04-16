@@ -177,7 +177,9 @@
       "Bash(rm -rf .next)",
       "Bash(echo \"exit grep=$?\")",
       "Bash(echo \"exit find=$?\")",
-      "Bash(grep -n \"rounded-2xl\\\\|return\\\\|min-h-screen\" C:/Projets/CMAC/src/app/profile/[username]/page.tsx)"
+      "Bash(grep -n \"rounded-2xl\\\\|return\\\\|min-h-screen\" C:/Projets/CMAC/src/app/profile/[username]/page.tsx)",
+      "Bash(sed -n '11,23p' C:/Projets/CMAC/src/app/opportunities/page.tsx)",
+      "Bash(sed -n '5,17p' C:/Projets/CMAC/src/app/promo/page.tsx)"
     ]
   }
 }
