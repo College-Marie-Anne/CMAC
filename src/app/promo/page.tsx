@@ -35,13 +35,25 @@ export default async function PromoPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Important : `promotions:promo_id(...)` qualifie EXPLICITEMENT la FK utilisée
+  // pour le join (`profiles.promo_id → promotions.id`). Sans cet alias,
+  // PostgREST échoue avec PGRST201 ("more than one relationship found")
+  // car promotions a aussi une FK inverse `leader_id → profiles.id` →
+  // 2 relations entre profiles et promotions → ambiguïté → query échoue →
+  // profileErr truthy → redirect /login (régression silencieuse).
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("*, promotions(id, start_date, end_date, leader_id)")
+    .select("*, promotions:promo_id(id, start_date, end_date, leader_id)")
     .eq("id", user.id)
     .single();
 
-  if (profileErr || !profile || profile.status !== "active") {
+  // On distingue les 2 cas d'échec pour éviter de cacher de futurs bugs DB
+  // sous un faux "redirect login".
+  if (profileErr) {
+    console.error("[/promo] profile fetch failed:", profileErr);
+    redirect("/feed");
+  }
+  if (!profile || profile.status !== "active") {
     await supabase.auth.signOut();
     redirect("/login");
   }
