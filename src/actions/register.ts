@@ -103,26 +103,34 @@ export async function registerAction(
 
   if (step2_type === "alumni" && step2_alumni) {
     if (step2_alumni.is_new_promo) {
-      // Créer une promo pending (admin client car user pas encore authentifié)
-      const { data: newPromo, error: promoError } = await admin
+      // Créer une promo pending ou réutiliser si elle existe déjà
+      // (concurrence : 2 alumni s'inscrivant simultanément avec la même
+      // nouvelle promo doivent pouvoir réussir — avant ce fix, le 2e échouait
+      // sur la contrainte UNIQUE promotions_name_key). Upsert idempotent sur
+      // `name` : si la row existe, `ignoreDuplicates: false` + onConflict la
+      // retourne telle quelle sans l'écraser.
+      const { data: upserted, error: promoError } = await admin
         .from("promotions")
-        .insert({
-          name: step2_alumni.promotion_name,
-          start_date: step2_alumni.promo_start_date,
-          end_date: step2_alumni.promo_start_date, // Sera corrigé par l'admin
-          status: "pending",
-        })
+        .upsert(
+          {
+            name: step2_alumni.promotion_name,
+            start_date: step2_alumni.promo_start_date,
+            end_date: step2_alumni.promo_start_date, // corrigé par l'admin
+            status: "pending",
+          },
+          { onConflict: "name", ignoreDuplicates: false }
+        )
         .select("id")
         .single();
 
-      if (promoError) {
-        console.error("[register] promotion insert failed:", promoError);
+      if (promoError || !upserted) {
+        console.error("[register] promotion upsert failed:", promoError);
         return {
           success: false,
           error: "Erreur lors de la création de la promotion",
         };
       }
-      promoId = newPromo.id;
+      promoId = upserted.id;
     } else {
       const { data: promo } = await admin
         .from("promotions")
@@ -254,6 +262,19 @@ export async function registerAction(
         cleanupErr
       );
     }
+
+    // Race sur l'unicité du username : entre le SELECT du step 1 et cet
+    // INSERT, une autre inscription parallèle a pris le même username.
+    // Postgres renvoie code 23505 (unique_violation). On remonte un message
+    // précis pour que l'utilisatrice sache qu'elle doit juste changer de
+    // username, plutôt qu'un "Erreur lors de la création du profil" générique.
+    if (profileError.code === "23505") {
+      if (profileError.message?.includes("profiles_username_key")) {
+        return { success: false, error: "Ce username est déjà pris" };
+      }
+      return { success: false, error: "Ce compte existe déjà" };
+    }
+
     return { success: false, error: "Erreur lors de la création du profil" };
   }
 

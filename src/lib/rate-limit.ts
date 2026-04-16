@@ -33,7 +33,12 @@ function createLimiter(
 
 // ─── Auth (par IP) ───
 export const loginLimiter = createLimiter("login", 5, "1 m");
-export const registerLimiter = createLimiter("register", 3, "1 h");
+// Register : 3/h était trop strict — dès que plusieurs élèves s'inscrivaient
+// depuis le WiFi CMA (même IP publique) ou en période de campagne (rentrée,
+// envoi d'invitations), la 4ème inscription était bloquée pendant 1h.
+// 10/h laisse passer un groupe d'élèves d'une même classe tout en restant
+// protecteur contre un bot qui spammerait des créations de compte.
+export const registerLimiter = createLimiter("register", 10, "1 h");
 export const resetPasswordLimiter = createLimiter("reset-pwd", 3, "1 h");
 
 // ─── Forum (par user ID) ───
