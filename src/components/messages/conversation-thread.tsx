@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useTransition } from "react";
+import { useState, useEffect, useRef, useCallback, useTransition, useId } from "react";
 import { Loader2 } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
@@ -32,6 +32,7 @@ export function ConversationThread({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
+  const instanceId = useId();
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -50,8 +51,10 @@ export function ConversationThread({
   useEffect(() => {
     const supabase = createClient();
 
+    // Channel name unique par instance (évite conflit Supabase JS si la même
+    // conversation est ouverte dans 2 contextes simultanés).
     const channel = supabase
-      .channel(`dm:${conversationId}`)
+      .channel(`dm:${conversationId}:${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -133,7 +136,7 @@ export function ConversationThread({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, currentUserId]);
+  }, [conversationId, currentUserId, instanceId]);
 
   // Load older messages
   const loadMore = useCallback(() => {

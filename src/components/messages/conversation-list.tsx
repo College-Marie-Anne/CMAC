@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useId } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Archive, Loader2, MessageSquarePlus } from "lucide-react";
 import { UserAvatar } from "@/components/feed/user-avatar";
@@ -28,18 +28,21 @@ export function ConversationList({
   const [isLoadingMore, startLoadMore] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
+  const instanceId = useId();
 
   // Determine which conversation is active from URL
   const activeConvId = pathname.startsWith("/messages/")
     ? pathname.split("/messages/")[1]?.split("/")[0] ?? null
     : null;
 
-  // Realtime: listen for new messages to update preview + unread count
+  // Realtime: listen for new messages to update preview + unread count.
+  // Channel name unique par instance pour éviter le bug Supabase JS où
+  // 2 hooks avec même nom partagent l'instance et la 2ème échoue à .on().
   useEffect(() => {
     const supabase = createClient();
 
     const channel = supabase
-      .channel("dm-list")
+      .channel(`dm-list:${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -87,7 +90,7 @@ export function ConversationList({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId]);
+  }, [currentUserId, instanceId]);
 
   // Filter by archive state
   const filtered = conversations.filter((c) =>

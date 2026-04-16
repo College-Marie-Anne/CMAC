@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 /**
@@ -19,10 +19,19 @@ import { createClient } from "@/utils/supabase/client";
  * `recipient_id = auth.uid()`, donc le filtre Realtime est redondant mais on
  * le garde pour réduire le trafic inutile.
  *
- * Pattern copié de `conversation-thread.tsx` / `conversation-list.tsx`.
+ * IMPORTANT — channel name unique par instance du hook :
+ * Le hook est utilisé dans plusieurs composants (NotificationsBellBadge dans
+ * le header + MobileProfileMenu dans la bottom bar). Si on utilise le même
+ * nom `notifications:${userId}` partout, Supabase JS déduplique par nom et
+ * retourne la MÊME instance de channel — la 2ème instance hook qui essaye
+ * `.on(...).subscribe()` throw "cannot add postgres_changes callbacks ...
+ * after subscribe()". On suffixe avec un ID React unique par instance pour
+ * éviter ce conflit (chaque mount = son propre channel, multiplexés sur la
+ * même WebSocket par Supabase Realtime).
  */
 export function useUnreadNotificationsCount(initialCount: number): number {
   const [count, setCount] = useState(initialCount);
+  const instanceId = useId();
 
   // Re-sync avec la nouvelle valeur SSR à chaque navigation (router.refresh()).
   useEffect(() => {
@@ -38,7 +47,7 @@ export function useUnreadNotificationsCount(initialCount: number): number {
       if (!user || !mounted) return;
 
       channel = supabase
-        .channel(`notifications:${user.id}`)
+        .channel(`notifications:${user.id}:${instanceId}`)
         .on(
           "postgres_changes",
           {
@@ -100,7 +109,7 @@ export function useUnreadNotificationsCount(initialCount: number): number {
         createClient().removeChannel(channel);
       }
     };
-  }, []);
+  }, [instanceId]);
 
   return count;
 }
