@@ -349,6 +349,14 @@ export function RegisterForm({
   return (
     <motion.div
       className="relative flex min-h-screen w-full items-center justify-center px-5 py-8 overflow-hidden"
+      // Gradient bordeaux inline — cette page publique doit porter son propre
+      // fond sombre, car le body est maintenant en bg-cma-gris (voir fix flash
+      // rouge). Sans ça, les textes blancs/beige des sous-composants étaient
+      // illisibles sur fond gris clair → effet "délavé".
+      style={{
+        background:
+          "radial-gradient(ellipse at 50% 30%, #800020 0%, #5c0018 40%, #3a000f 80%, #1a0008 100%)",
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1.2, ease: "easeInOut" }}

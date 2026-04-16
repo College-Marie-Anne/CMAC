@@ -88,6 +88,13 @@ export function LoginForm() {
   return (
     <motion.div
       className="relative flex min-h-screen w-full items-center justify-center px-5 py-10 overflow-hidden"
+      // Gradient bordeaux inline — cette page publique porte son propre fond
+      // sombre. Sans ça, le body bg-cma-gris (introduit pour fixer le flash
+      // rouge) transparaît et les textes blanc/beige deviennent illisibles.
+      style={{
+        background:
+          "radial-gradient(ellipse at 50% 30%, #800020 0%, #5c0018 40%, #3a000f 80%, #1a0008 100%)",
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}

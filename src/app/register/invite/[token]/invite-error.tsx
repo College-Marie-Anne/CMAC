@@ -19,19 +19,22 @@ const MESSAGES: Record<string, { title: string; body: string; icon: typeof Alert
   revoked: {
     title: "Lien d'invitation révoqué",
     body:
-      "Ce lien a été désactivé par un administrateur. Contacte la personne qui te l'a partagé pour en obtenir un nouveau.",
+      "Ce lien a été désactivé par l'alumni qui l'a créé ou par un administrateur. Contacte la personne qui te l'a partagé pour en obtenir un nouveau.",
     icon: Ban,
   },
   used: {
-    title: "Lien déjà utilisé",
+    // Depuis la migration 032, un lien accepte jusqu'à max_uses inscriptions
+    // (default 10). reason='used' arrive quand used_count >= max_uses, donc
+    // "tous les slots pris" et plus "utilisé une seule fois".
+    title: "Lien d'invitation épuisé",
     body:
-      "Ce lien d'invitation a déjà servi à une inscription. Chaque lien ne peut être utilisé qu'une seule fois — demande-en un nouveau si besoin.",
+      "Ce lien a déjà été utilisé par le nombre maximum de personnes autorisées. Demande à l'alumni qui te l'a partagé de t'en générer un nouveau.",
     icon: CheckCircle2,
   },
   expired: {
-    title: "Lien expiré",
+    title: "Lien d'invitation expiré",
     body:
-      "Ce lien d'invitation a expiré (7 jours après sa création). Contacte l'alumni qui te l'a envoyé pour en obtenir un nouveau.",
+      "Ce lien a expiré — il n'était valide que 7 jours après sa création. Contacte l'alumni qui te l'a envoyé pour en obtenir un nouveau.",
     icon: Clock,
   },
   server_error: {
@@ -49,6 +52,15 @@ export function InviteError({ reason }: { reason: Reason }) {
   return (
     <motion.div
       className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-5"
+      // Gradient bordeaux inline : cette page publique doit porter son propre
+      // fond — depuis qu'on a retiré le fond bordeaux global du RootLayout
+      // (pour fixer le flash rouge lors des transitions vers les pages
+      // protégées), le composant héritait du bg-cma-gris du body et ses
+      // textes blanc/beige devenaient illisibles (glitch visuel).
+      style={{
+        background:
+          "radial-gradient(ellipse at 50% 30%, #800020 0%, #5c0018 40%, #3a000f 80%, #1a0008 100%)",
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
