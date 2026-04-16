@@ -252,17 +252,46 @@ export default function PromotionsPage() {
     fetchPromos();
   };
 
-  // Rejeter une promo pending (avec suspension des profils liés)
+  // Rejeter une promo pending (avec suspension des profils liés + notification)
   const handleReject = async (id: string) => {
     setActionLoading(id);
 
-    // 1. Rejeter la promo
+    // 1. Récupérer les profils affectés AVANT la suspension.
+    // notify_user (migration 023) filtre les comptes non-actifs : si on
+    // notifiait après suspension, aucune ligne ne serait créée.
+    const { data: affectedProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("promo_id", id)
+      .neq("role", "admin")
+      .eq("status", "active");
+
+    // 2. Rejeter la promo
     await supabase
       .from("promotions")
       .update({ status: "rejected" })
       .eq("id", id);
 
-    // 2. Suspendre les profils liés
+    // 3. Notifier les profils concernés (promo_rejected — non-opt-out).
+    // Fire-and-forget pour broadcast multi-destinataires.
+    for (const p of affectedProfiles ?? []) {
+      supabase
+        .rpc("notify_user", {
+          p_recipient: p.id,
+          p_type: "promo_rejected",
+          p_reference_id: id,
+          p_content:
+            "Votre promotion a été rejetée. Contactez un admin dans les 3 jours.",
+          p_preference_field: null,
+        })
+        .then(
+          () => {},
+          () => {}
+        );
+    }
+
+    // 4. Suspendre les profils liés (après notification car notify_user
+    // filtre les comptes inactifs).
     await supabase
       .from("profiles")
       .update({ status: "suspended" })

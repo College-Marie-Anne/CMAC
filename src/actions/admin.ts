@@ -126,6 +126,15 @@ export async function approveUserAction(
     // Audit log : inséré automatiquement par trigger trg_audit_profiles_update
     // (migration 020) — action 'approve_user' détectée via la transition status.
 
+    // Notification account_approved (non-opt-out → preference_field: null)
+    await supabase.rpc("notify_user", {
+      p_recipient: userId,
+      p_type: "account_approved",
+      p_reference_id: userId,
+      p_content: "Votre compte a été approuvé. Bienvenue sur CMA Connect !",
+      p_preference_field: null,
+    });
+
     revalidatePath("/admin/approvals");
     return { success: true };
   } catch (e: unknown) {
@@ -207,6 +216,19 @@ export async function suspendUserAction(
     // un paramètre supplémentaire à la fonction log_admin_action si besoin.
     void reason; // conservé pour compat API, usage à étendre via RPC dédiée
 
+    // Notification account_suspended (non-opt-out)
+    // Note : notify_user filtre les comptes inactifs ; le compte vient d'être
+    // suspendu donc la notification ne sera pas créée. C'est OK : la spec
+    // §488 prévoit l'envoi par email (out-of-scope ici). On garde l'appel
+    // pour rester cohérent avec le pattern.
+    await supabase.rpc("notify_user", {
+      p_recipient: userId,
+      p_type: "account_suspended",
+      p_reference_id: userId,
+      p_content: "Votre compte a été suspendu par un administrateur.",
+      p_preference_field: null,
+    });
+
     revalidatePath("/admin/users");
     return { success: true };
   } catch (e: unknown) {
@@ -232,6 +254,16 @@ export async function reactivateUserAction(
 
     // Audit log auto via trigger (action 'reactivate_user' détectée).
 
+    // Notification account_reactivated (non-opt-out). Le compte vient juste
+    // de passer à 'active' donc notify_user créera bien la ligne.
+    await supabase.rpc("notify_user", {
+      p_recipient: userId,
+      p_type: "account_reactivated",
+      p_reference_id: userId,
+      p_content: "Votre compte a été réactivé.",
+      p_preference_field: null,
+    });
+
     revalidatePath("/admin/users");
     return { success: true };
   } catch (e: unknown) {
@@ -256,6 +288,17 @@ export async function deactivateUserAction(
     if (error) return { success: false, error: error.message };
 
     // Audit log auto via trigger (action 'deactivate_user' détectée).
+
+    // Notification account_deactivated (non-opt-out). Le compte vient d'être
+    // désactivé ; notify_user filtre les comptes non-actifs donc l'INSERT sera
+    // un no-op. Conservé pour cohérence (cf. suspendUserAction).
+    await supabase.rpc("notify_user", {
+      p_recipient: userId,
+      p_type: "account_deactivated",
+      p_reference_id: userId,
+      p_content: "Votre compte a été désactivé.",
+      p_preference_field: null,
+    });
 
     revalidatePath("/admin/users");
     return { success: true };
@@ -525,7 +568,14 @@ export async function deletePostAction(
   postId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase } = await requireAdmin();
+    const { supabase, user } = await requireAdmin();
+
+    // Fetch l'auteur AVANT le UPDATE (pour notification).
+    const { data: postBefore } = await supabase
+      .from("forum_posts")
+      .select("author_id")
+      .eq("id", postId)
+      .maybeSingle();
 
     const { error } = await supabase
       .from("forum_posts")
@@ -536,6 +586,17 @@ export async function deletePostAction(
 
     // Audit log auto via trigger trg_audit_forum_posts_update (action 'delete_post'
     // détectée car is_deleted passe à true et auth.uid() ≠ author_id).
+
+    // Notification : auteur du post supprimé (sauf si admin se supprime lui-même).
+    if (postBefore?.author_id && postBefore.author_id !== user.id) {
+      await supabase.rpc("notify_user", {
+        p_recipient: postBefore.author_id,
+        p_type: "admin",
+        p_reference_id: postId,
+        p_content: "Votre post a été supprimé par un administrateur.",
+        p_preference_field: null,
+      });
+    }
 
     revalidatePath("/admin/moderation");
     return { success: true };
@@ -548,7 +609,14 @@ export async function deleteCommentAction(
   commentId: string
 ): Promise<AdminActionResult> {
   try {
-    const { supabase } = await requireAdmin();
+    const { supabase, user } = await requireAdmin();
+
+    // Fetch l'auteur AVANT le UPDATE (pour notification).
+    const { data: commentBefore } = await supabase
+      .from("forum_comments")
+      .select("author_id")
+      .eq("id", commentId)
+      .maybeSingle();
 
     const { error } = await supabase
       .from("forum_comments")
@@ -558,6 +626,17 @@ export async function deleteCommentAction(
     if (error) return { success: false, error: error.message };
 
     // Audit log auto via trigger trg_audit_forum_comments_update (action 'delete_comment').
+
+    // Notification : auteur du commentaire supprimé (sauf self-delete admin).
+    if (commentBefore?.author_id && commentBefore.author_id !== user.id) {
+      await supabase.rpc("notify_user", {
+        p_recipient: commentBefore.author_id,
+        p_type: "admin",
+        p_reference_id: commentId,
+        p_content: "Votre commentaire a été supprimé par un administrateur.",
+        p_preference_field: null,
+      });
+    }
 
     revalidatePath("/admin/moderation");
     return { success: true };
@@ -644,6 +723,23 @@ export async function respondTicketAction(
     if (error) return { success: false, error: error.message };
 
     // Audit log auto via trigger (action 'respond_ticket' détectée via admin_response).
+
+    // Notification support_reply (non-opt-out) à l'auteur du ticket.
+    const { data: ticket } = await supabase
+      .from("support_tickets")
+      .select("author_id")
+      .eq("id", ticketId)
+      .maybeSingle();
+
+    if (ticket?.author_id) {
+      await supabase.rpc("notify_user", {
+        p_recipient: ticket.author_id,
+        p_type: "support_reply",
+        p_reference_id: ticketId,
+        p_content: "Un administrateur a répondu à votre ticket de support.",
+        p_preference_field: null,
+      });
+    }
 
     revalidatePath("/admin/support");
     revalidatePath(`/admin/support/${ticketId}`);
@@ -780,6 +876,17 @@ export async function updateProfileAction(
     // selon les champs modifiés : status transition, role, promo_id, ou update_profile).
     // Les rejected fields ne sont plus capturés dans les détails — prune silencieux.
     void rejected;
+
+    // Notification (non-opt-out) à la propriétaire du profil modifié.
+    // On notifie systématiquement (peu importe quels champs) sauf si l'admin
+    // édite son propre profil (cas peu probable mais possible).
+    await supabase.rpc("notify_user", {
+      p_recipient: userId,
+      p_type: "admin",
+      p_reference_id: userId,
+      p_content: "Votre profil a été modifié par un administrateur.",
+      p_preference_field: null,
+    });
 
     revalidatePath(`/admin/users/${userId}`);
     revalidatePath("/admin/users");

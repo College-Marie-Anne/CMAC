@@ -1,14 +1,19 @@
 {
+  "id": "/",
   "name": "CMA Connect",
   "short_name": "CMA Connect",
   "description": "Plateforme de réseautage et mentorat du Collège Marie-Anne",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait-primary",
   "theme_color": "#3a000f",
   "background_color": "#3a000f",
   "categories": ["education", "social"],
   "lang": "fr",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",

@@ -19,6 +19,7 @@ import {
   reactionLimiter,
   checkRateLimit,
 } from "@/lib/rate-limit";
+import { parseMentions } from "@/lib/mentions";
 
 export type ForumActionResult = {
   success: boolean;
@@ -82,6 +83,75 @@ export async function createPostAction(
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    // ─── Notifications ───
+    // Fire-and-forget : on n'attend pas et on avale les erreurs pour ne
+    // jamais bloquer l'écriture du post à cause d'un échec de notification.
+    const newPostId = post.id;
+
+    // 1. Mentions @username : opt-in (preference_field 'mention')
+    const mentionedUsernames = parseMentions(parsed.data.content);
+    if (mentionedUsernames.length > 0) {
+      const { data: authorProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .maybeSingle();
+      const authorUsername = authorProfile?.username ?? "Quelqu'un";
+
+      const { data: mentionedUsers } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("username", mentionedUsernames)
+        .eq("status", "active")
+        .neq("id", user.id);
+
+      for (const u of mentionedUsers ?? []) {
+        supabase
+          .rpc("notify_user", {
+            p_recipient: u.id,
+            p_type: "mention",
+            p_reference_id: newPostId,
+            p_content: `@${authorUsername} vous a mentionnée dans un post.`,
+            p_preference_field: "mention",
+          })
+          .then(
+            () => {},
+            () => {}
+          );
+      }
+    }
+
+    // 2. new_opportunity : si tag = "Bourses & Opportunités" → broadcast aux étudiantes
+    const { data: tagInfo } = await supabase
+      .from("forum_tags")
+      .select("name")
+      .eq("id", parsed.data.tag_id)
+      .maybeSingle();
+
+    if (tagInfo?.name === "Bourses & Opportunités") {
+      const { data: students } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("status", "active")
+        .in("role", ["student", "s4"])
+        .neq("id", user.id);
+
+      for (const s of students ?? []) {
+        supabase
+          .rpc("notify_user", {
+            p_recipient: s.id,
+            p_type: "new_opportunity",
+            p_reference_id: newPostId,
+            p_content: "Nouvelle opportunité publiée sur Bourses & Opportunités.",
+            p_preference_field: "new_opportunity",
+          })
+          .then(
+            () => {},
+            () => {}
+          );
+      }
+    }
 
     revalidatePath("/feed");
     return { success: true, postId: post.id };
@@ -252,6 +322,95 @@ export async function createCommentAction(
 
     if (error) return { success: false, error: error.message };
 
+    // ─── Notifications ───
+    // Fire-and-forget pour les broadcasts ; l'échec ne casse jamais l'écriture.
+    const postId = parsed.data.post_id;
+
+    // Récupérer l'auteur du post (pour forum_reply + exclusion comment_reply)
+    const { data: postData } = await supabase
+      .from("forum_posts")
+      .select("id, author_id")
+      .eq("id", postId)
+      .maybeSingle();
+
+    // 1. forum_reply → auteur du post (sauf self-comment)
+    if (postData?.author_id && postData.author_id !== user.id) {
+      await supabase.rpc("notify_user", {
+        p_recipient: postData.author_id,
+        p_type: "forum_reply",
+        p_reference_id: postData.id,
+        p_content: "Nouveau commentaire sur votre post.",
+        p_preference_field: "forum_reply",
+      });
+    }
+
+    // 2. forum_comment_reply → autres commentateurs (sauf self + auteur du post)
+    const { data: others } = await supabase
+      .from("forum_comments")
+      .select("author_id")
+      .eq("post_id", postId)
+      .eq("is_deleted", false)
+      .neq("author_id", user.id);
+
+    const uniqueCommenters = Array.from(
+      new Set(
+        (others ?? [])
+          .map((c) => c.author_id)
+          .filter(
+            (id): id is string =>
+              !!id && id !== user.id && id !== postData?.author_id
+          )
+      )
+    );
+
+    for (const commenterId of uniqueCommenters) {
+      supabase
+        .rpc("notify_user", {
+          p_recipient: commenterId,
+          p_type: "forum_comment_reply",
+          p_reference_id: postData?.id ?? postId,
+          p_content: "Nouveau commentaire sur un post que vous suivez.",
+          p_preference_field: "forum_comment_reply",
+        })
+        .then(
+          () => {},
+          () => {}
+        );
+    }
+
+    // 3. mentions @username dans le commentaire (référence = post_id)
+    const mentionedUsernames = parseMentions(parsed.data.content);
+    if (mentionedUsernames.length > 0) {
+      const { data: authorProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .maybeSingle();
+      const authorUsername = authorProfile?.username ?? "Quelqu'un";
+
+      const { data: mentionedUsers } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("username", mentionedUsernames)
+        .eq("status", "active")
+        .neq("id", user.id);
+
+      for (const u of mentionedUsers ?? []) {
+        supabase
+          .rpc("notify_user", {
+            p_recipient: u.id,
+            p_type: "mention",
+            p_reference_id: postId,
+            p_content: `@${authorUsername} vous a mentionnée dans un commentaire.`,
+            p_preference_field: "mention",
+          })
+          .then(
+            () => {},
+            () => {}
+          );
+      }
+    }
+
     revalidatePath(`/feed/${parsed.data.post_id}`);
     revalidatePath("/feed");
     return { success: true };
@@ -352,6 +511,45 @@ export async function toggleReactionAction(
       .insert(insertData);
 
     if (error) return { success: false, error: error.message };
+
+    // ─── Notification "reaction" ───
+    // Uniquement quand on AJOUTE une réaction (pas au retrait).
+    // Cible : auteur du post ou du commentaire réagi (sauf self).
+    let targetAuthor: string | null = null;
+    let refId: string | null = null;
+
+    if (isPost) {
+      const { data: p } = await supabase
+        .from("forum_posts")
+        .select("author_id")
+        .eq("id", targetId)
+        .maybeSingle();
+      targetAuthor = p?.author_id ?? null;
+      refId = targetId;
+    } else {
+      const { data: c } = await supabase
+        .from("forum_comments")
+        .select("author_id")
+        .eq("id", targetId)
+        .maybeSingle();
+      targetAuthor = c?.author_id ?? null;
+      refId = targetId;
+    }
+
+    if (targetAuthor && targetAuthor !== user.id) {
+      supabase
+        .rpc("notify_user", {
+          p_recipient: targetAuthor,
+          p_type: "reaction",
+          p_reference_id: refId,
+          p_content: "Nouvelle réaction sur votre publication.",
+          p_preference_field: "reaction",
+        })
+        .then(
+          () => {},
+          () => {}
+        );
+    }
 
     return { success: true, action: "added" };
   } catch (e: unknown) {

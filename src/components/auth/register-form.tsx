@@ -884,6 +884,7 @@ function Step2AlumniForm({
   const isNewPromo = watch("is_new_promo");
   const selectedPromoName = watch("promotion_name");
   const [promoSearch, setPromoSearch] = useState("");
+  const [promoOpen, setPromoOpen] = useState(false);
   const promoSearchRef = useRef<HTMLInputElement | null>(null);
 
   const filteredPromotions = promotions.filter((p) =>
@@ -894,6 +895,7 @@ function Step2AlumniForm({
     if (value === "__other__") {
       setValue("is_new_promo", true);
       setValue("promotion_name", "");
+      setPromoOpen(false);
 
       setTimeout(() => {
         const input = document.getElementById("promotion_name_input") as HTMLInputElement | null;
@@ -904,9 +906,11 @@ function Step2AlumniForm({
     }
 
     setValue("promotion_name", value, { shouldValidate: true });
+    setPromoOpen(false);
   };
 
   const handleSelectOpenChange = (open: boolean) => {
+    setPromoOpen(open);
     if (open) {
       setPromoSearch("");
       // Auto-focus input de recherche sur desktop uniquement (clavier physique).
@@ -941,7 +945,7 @@ function Step2AlumniForm({
           // Combobox (Popover + liste custom) plutôt que Radix Select — le
           // Select Radix ferme quand on tap l'input de recherche sur mobile
           // à cause de son focus trap strict. Popover gère ça nativement.
-          <Popover onOpenChange={handleSelectOpenChange}>
+          <Popover open={promoOpen} onOpenChange={handleSelectOpenChange}>
             <PopoverTrigger asChild>
               <button
                 type="button"
@@ -1155,13 +1159,20 @@ function Step2S4Form({
   const desiredFields = watch("desired_study_fields");
   const selectedPromoName = watch("promotion_name");
   const [promoSearch, setPromoSearch] = useState("");
+  const [promoOpen, setPromoOpen] = useState(false);
   const promoSearchRef = useRef<HTMLInputElement | null>(null);
 
   const filteredPromotions = promotions.filter((p) =>
     p.name.toLowerCase().includes(promoSearch.toLowerCase())
   );
 
+  const selectPromo = (name: string) => {
+    setValue("promotion_name", name, { shouldValidate: true });
+    setPromoOpen(false);
+  };
+
   const handleSelectOpenChange = (open: boolean) => {
+    setPromoOpen(open);
     if (open) {
       setPromoSearch("");
       // Auto-focus input de recherche sur desktop uniquement (clavier physique).
@@ -1187,7 +1198,7 @@ function Step2S4Form({
     <form onSubmit={handleSubmit(onNext)} className="space-y-4">
       <div>
         <Label className="text-xs mb-1.5 block" style={labelColor}>Promotion actuelle</Label>
-        <Popover onOpenChange={handleSelectOpenChange}>
+        <Popover open={promoOpen} onOpenChange={handleSelectOpenChange}>
           <PopoverTrigger asChild>
             <button
               type="button"
@@ -1219,7 +1230,7 @@ function Step2S4Form({
                   key={p.id}
                   label={p.name}
                   selected={watch("promotion_name") === p.name}
-                  onSelect={() => setValue("promotion_name", p.name, { shouldValidate: true })}
+                  onSelect={() => selectPromo(p.name)}
                 />
               ))}
               {filteredPromotions.length === 0 && (
