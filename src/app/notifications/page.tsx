@@ -101,12 +101,24 @@ export default async function NotificationsPage({
     .map((n) => n.reference_id)
     .filter((id): id is string => Boolean(id));
 
-  // Resolve reference_id precisely when possible
-  const resolvedHrefByNotificationId = new Map<string, string>();
-  if (referenceIds.length > 0 && notifications && notifications.length > 0) {
+  // Types informationnels : pas de destination utile (le contenu est déjà
+  // affiché dans la card de notif). Le bouton "Ouvrir" est caché pour eux.
+  const INFO_ONLY_TYPES = new Set([
+    "account_approved",
+    "account_suspended",
+    "account_deactivated",
+    "account_reactivated",
+    "admin",
+    "invitation_used",
+  ]);
+
+  // Resolve reference_id precisely when possible.
+  // null = info-only (pas de bouton "Ouvrir"). string = href de destination.
+  const resolvedHrefByNotificationId = new Map<string, string | null>();
+  if (notifications && notifications.length > 0) {
     const uniqRef = Array.from(new Set(referenceIds));
 
-    // Résolution forum + mentorship + DM en 1 seul Promise.all (6 requêtes parallèles)
+    // Résolution forum + mentorship + DM + support en 1 seul Promise.all
     const [
       { data: forumPosts },
       { data: forumComments },
@@ -114,52 +126,76 @@ export default async function NotificationsPage({
       { data: mentorshipRequests },
       { data: convs },
       { data: dms },
-    ] = await Promise.all([
-      supabase.from("forum_posts").select("id").in("id", uniqRef),
-      supabase.from("forum_comments").select("id, post_id").in("id", uniqRef),
-      supabase.from("mentorship_sessions").select("id").in("id", uniqRef),
-      supabase.from("mentorship_requests").select("id").in("id", uniqRef),
-      supabase.from("conversations").select("id").in("id", uniqRef),
-      supabase.from("direct_messages").select("id, conversation_id").in("id", uniqRef),
-    ]);
+      { data: supportTickets },
+    ] = uniqRef.length > 0
+      ? await Promise.all([
+          supabase.from("forum_posts").select("id").in("id", uniqRef),
+          supabase.from("forum_comments").select("id, post_id").in("id", uniqRef),
+          supabase.from("mentorship_sessions").select("id").in("id", uniqRef),
+          supabase.from("mentorship_requests").select("id").in("id", uniqRef),
+          supabase.from("conversations").select("id").in("id", uniqRef),
+          supabase.from("direct_messages").select("id, conversation_id").in("id", uniqRef),
+          supabase.from("support_tickets").select("id").in("id", uniqRef),
+        ])
+      : [
+          { data: [] as { id: string }[] },
+          { data: [] as { id: string; post_id: string }[] },
+          { data: [] as { id: string }[] },
+          { data: [] as { id: string }[] },
+          { data: [] as { id: string }[] },
+          { data: [] as { id: string; conversation_id: string }[] },
+          { data: [] as { id: string }[] },
+        ];
+
     const postSet = new Set((forumPosts ?? []).map((p) => p.id));
     const commentToPost = new Map((forumComments ?? []).map((c) => [c.id, c.post_id]));
     const mentorshipSessionSet = new Set((mentorshipSessions ?? []).map((s) => s.id));
     const mentorshipRequestSet = new Set((mentorshipRequests ?? []).map((r) => r.id));
     const convSet = new Set((convs ?? []).map((c) => c.id));
     const dmToConversation = new Map((dms ?? []).map((m) => [m.id, m.conversation_id]));
+    const supportTicketSet = new Set((supportTickets ?? []).map((t) => t.id));
 
     for (const n of notifications) {
-      const ref = n.reference_id;
-      if (!ref) {
-        resolvedHrefByNotificationId.set(n.id, "/feed");
+      // Types purement informatifs → pas de bouton "Ouvrir"
+      if (INFO_ONLY_TYPES.has(n.type)) {
+        resolvedHrefByNotificationId.set(n.id, null);
         continue;
       }
 
-      let href = "/feed";
+      const ref = n.reference_id;
+      let href: string | null = null;
+
       if (n.type === "dm") {
-        if (convSet.has(ref)) href = `/messages/${ref}`;
-        else if (dmToConversation.has(ref)) href = `/messages/${dmToConversation.get(ref)}`;
+        if (ref && convSet.has(ref)) href = `/messages/${ref}`;
+        else if (ref && dmToConversation.has(ref))
+          href = `/messages/${dmToConversation.get(ref)}`;
         else href = "/messages";
       } else if (
         n.type === "forum_reply" ||
         n.type === "forum_comment_reply" ||
         n.type === "reaction" ||
-        n.type === "mention"
+        n.type === "mention" ||
+        n.type === "post_pinned" ||
+        n.type === "new_opportunity"
       ) {
-        if (postSet.has(ref)) href = `/feed/${ref}`;
-        else if (commentToPost.has(ref)) href = `/feed/${commentToPost.get(ref)}`;
+        if (ref && postSet.has(ref)) href = `/feed/${ref}`;
+        else if (ref && commentToPost.has(ref))
+          href = `/feed/${commentToPost.get(ref)}`;
+        else if (n.type === "new_opportunity") href = "/opportunities";
+        // Si le post a été supprimé, pas de destination utile → null
       } else if (n.type === "mentorship" || n.type === "mentorship_completed") {
-        if (mentorshipSessionSet.has(ref)) href = `/mentorship/${ref}`;
-        else if (mentorshipRequestSet.has(ref)) href = "/mentorship";
+        if (ref && mentorshipSessionSet.has(ref)) href = `/mentorship/${ref}`;
+        else if (ref && mentorshipRequestSet.has(ref)) href = "/mentorship";
         else href = "/mentorship";
       } else if (n.type === "election") {
         href = "/promo/election";
-      } else if (n.type === "new_opportunity") {
-        href = "/opportunities";
-      } else {
-        href = "/feed";
+      } else if (n.type === "support_reply") {
+        if (ref && supportTicketSet.has(ref)) href = `/support/${ref}`;
+        else href = "/support";
+      } else if (n.type === "promo_rejected") {
+        href = "/promo";
       }
+      // Sinon href reste null → bouton "Ouvrir" caché
 
       resolvedHrefByNotificationId.set(n.id, href);
     }
@@ -300,21 +336,26 @@ export default async function NotificationsPage({
                             <p className="mt-1 text-xs text-gray-500">
                               {new Date(n.created_at).toLocaleString("fr-FR")}
                             </p>
-                            <form
-                              action={openNotificationAction.bind(
-                                null,
-                                n.id,
-                                resolvedHrefByNotificationId.get(n.id) ?? "/feed"
-                              )}
-                              className="mt-2"
-                            >
-                              <button
-                                type="submit"
-                                className="inline-block text-xs font-medium text-cma-bordeaux hover:underline"
-                              >
-                                Ouvrir
-                              </button>
-                            </form>
+                            {(() => {
+                              const href = resolvedHrefByNotificationId.get(n.id);
+                              // Pas de bouton "Ouvrir" pour les notifs sans
+                              // destination utile (account_*, admin, etc.) ou
+                              // dont la ressource a été supprimée.
+                              if (!href) return null;
+                              return (
+                                <form
+                                  action={openNotificationAction.bind(null, n.id, href)}
+                                  className="mt-2"
+                                >
+                                  <button
+                                    type="submit"
+                                    className="inline-block text-xs font-medium text-cma-bordeaux hover:underline"
+                                  >
+                                    Ouvrir
+                                  </button>
+                                </form>
+                              );
+                            })()}
                           </div>
 
                           <div className="flex items-center gap-2">

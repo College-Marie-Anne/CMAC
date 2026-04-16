@@ -169,7 +169,8 @@
       "Bash(grep -rn \"export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/dist/esm/server/*.d.ts)",
       "Bash(grep -l \"^export.*\\\\\"after\\\\\"\\\\|^export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/*.d.ts)",
       "Bash(grep -rn \"\\\\\"after\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after*)",
-      "Bash(grep -rn \"defaultCache\" C:/Projets/CMAC/node_modules/@serwist/turbopack/dist/*.mjs)"
+      "Bash(grep -rn \"defaultCache\" C:/Projets/CMAC/node_modules/@serwist/turbopack/dist/*.mjs)",
+      "Bash(grep -n \"post_pinned\\\\|support_reply\\\\|invitation_used\\\\|new_opportunity\\\\|promo_rejected\\\\|p_type:\" C:/Projets/CMAC/src/actions/*.ts)"
     ]
   }
 }
