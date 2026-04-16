@@ -1,11 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useEffect, useId } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Vote, ChevronRight, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { startElectionAction } from "@/actions/promo";
 import { timeAgo } from "@/lib/time-ago";
+import { createClient } from "@/utils/supabase/client";
 import type { PromoElection } from "@/lib/types/promo";
 
 interface ElectionWidgetProps {
@@ -15,12 +17,82 @@ interface ElectionWidgetProps {
 
 export function ElectionWidget({ election, hasLeader }: ElectionWidgetProps) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const instanceId = useId();
 
   const handleStartElection = () => {
     startTransition(async () => {
       await startElectionAction();
     });
   };
+
+  // Realtime : transitions de phase (nomination → voting → completed/cancelled)
+  // + nouvelles candidatures / retraits. On déclenche `router.refresh()` qui
+  // re-fetch la page /promo (le widget reçoit ses props du parent Server
+  // Component, donc il suffit de forcer le re-run). Évite de dupliquer toute
+  // la logique de state côté client.
+  useEffect(() => {
+    const supabase = createClient();
+    const electionId = election?.id;
+
+    const channel = supabase
+      .channel(`election-widget:${electionId ?? "none"}:${instanceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "promo_elections",
+          // Si pas d'election en cours, on écoute tout (filter=undefined)
+          // pour attraper le moment où quelqu'un en lance une.
+          ...(electionId ? { filter: `id=eq.${electionId}` } : {}),
+        },
+        () => router.refresh()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "promo_elections",
+        },
+        () => router.refresh()
+      );
+
+    // Si une élection est en cours, on surveille aussi les candidatures
+    // pour que le compteur "X candidates" et le widget se mettent à jour.
+    if (electionId) {
+      channel.on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "promo_candidates",
+          filter: `election_id=eq.${electionId}`,
+        },
+        () => router.refresh()
+      ).on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "promo_candidates",
+          filter: `election_id=eq.${electionId}`,
+        },
+        () => router.refresh()
+      );
+    }
+
+    channel.subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn(`[realtime:election-widget] ${status}`, err);
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [election?.id, instanceId, router]);
 
   if (hasLeader && !election) return null;
 

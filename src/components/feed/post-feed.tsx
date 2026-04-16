@@ -137,7 +137,53 @@ export function PostFeed({
           });
         }
       )
-      .subscribe();
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "forum_posts",
+        },
+        (payload) => {
+          // UPDATE events : soft-delete, pin/unpin, edit. Le post doit soit
+          // disparaître (is_deleted), soit voir ses métadonnées mises à jour
+          // (is_pinned pour le tri, content/is_edited après édition, etc.).
+          const updated = payload.new as {
+            id: string;
+            is_deleted: boolean;
+            is_pinned: boolean;
+            is_edited: boolean;
+            content: string;
+            image_url: string | null;
+            reaction_count: number;
+            updated_at: string;
+          };
+
+          setPosts((prev) => {
+            if (updated.is_deleted) {
+              return prev.filter((p) => p.id !== updated.id);
+            }
+            return prev.map((p) =>
+              p.id === updated.id
+                ? {
+                    ...p,
+                    is_pinned: updated.is_pinned,
+                    is_edited: updated.is_edited,
+                    content: updated.content,
+                    image_url: updated.image_url,
+                    reaction_count: updated.reaction_count,
+                    updated_at: updated.updated_at,
+                  }
+                : p
+            );
+          });
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime:forum-posts] ${status}`, err);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

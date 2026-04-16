@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useId } from "react";
 import { Heart, ThumbsUp, HandMetal } from "lucide-react";
 import { toggleReactionAction } from "@/actions/forum";
+import { createClient } from "@/utils/supabase/client";
 import type { ReactionEmoji } from "@/lib/types/forum";
 
 const REACTIONS: { emoji: ReactionEmoji; icon: typeof Heart; label: string }[] = [
@@ -16,6 +17,9 @@ interface ReactionBarProps {
   targetType: "post" | "comment";
   reactionCount: number;
   userReactions: ReactionEmoji[];
+  /** Requis pour filtrer les events Realtime émis par l'user elle-même
+   *  (qui sont déjà reflétés via l'optimistic update local). */
+  currentUserId?: string;
 }
 
 export function ReactionBar({
@@ -23,10 +27,63 @@ export function ReactionBar({
   targetType,
   reactionCount: initialCount,
   userReactions: initialReactions,
+  currentUserId,
 }: ReactionBarProps) {
   const [count, setCount] = useState(initialCount);
   const [active, setActive] = useState<Set<ReactionEmoji>>(new Set(initialReactions));
   const [isPending, startTransition] = useTransition();
+  const instanceId = useId();
+
+  // Realtime : INSERT/DELETE de réactions par d'AUTRES utilisatrices sur ce
+  // post/commentaire. On filtre côté client par user_id ≠ currentUserId car
+  // nos propres réactions sont déjà gérées par l'optimistic update
+  // (sinon on double-compterait).
+  useEffect(() => {
+    const supabase = createClient();
+    const targetCol = targetType === "post" ? "post_id" : "comment_id";
+
+    const channel = supabase
+      .channel(`reactions:${targetType}:${targetId}:${instanceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "forum_reactions",
+          filter: `${targetCol}=eq.${targetId}`,
+        },
+        (payload) => {
+          const raw = payload.new as { user_id: string };
+          if (currentUserId && raw.user_id === currentUserId) return;
+          setCount((c) => c + 1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "forum_reactions",
+          filter: `${targetCol}=eq.${targetId}`,
+        },
+        (payload) => {
+          // REPLICA IDENTITY FULL (migration 033) garantit que payload.old
+          // contient toutes les colonnes, dont user_id.
+          const old = payload.old as { user_id?: string };
+          if (currentUserId && old.user_id === currentUserId) return;
+          setCount((c) => Math.max(0, c - 1));
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime:reactions] ${status}`, err);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [targetId, targetType, currentUserId, instanceId]);
 
   const handleToggle = (emoji: ReactionEmoji) => {
     // Optimistic update

@@ -129,6 +129,7 @@ export function CommentItem({
                     targetType="comment"
                     reactionCount={comment.reaction_count}
                     userReactions={comment.user_reactions}
+                    currentUserId={currentUserId}
                   />
                   {depth === 0 && (
                     <button

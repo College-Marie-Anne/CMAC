@@ -3,6 +3,7 @@
 import type { MentorshipSession, MentorshipRequest } from "@/lib/types/mentorship";
 import { ActiveSessionCard } from "./active-session-card";
 import { PendingRequestCard } from "./pending-request-card";
+import { useMentorshipRealtime } from "@/lib/hooks/use-mentorship-realtime";
 
 interface MentorshipDashboardAlumniProps {
   currentUserId: string;
@@ -17,7 +18,8 @@ export function MentorshipAlumniDashboard({
   pastSessions,
   pendingRequests,
 }: MentorshipDashboardAlumniProps) {
-  
+  useMentorshipRealtime(currentUserId);
+
   return (
     <div className="space-y-8">
       {/* Header */}

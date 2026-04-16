@@ -171,6 +171,7 @@ export function PostCard({ post, currentUserId, isAdmin, canPin }: PostCardProps
           targetType="post"
           reactionCount={post.reaction_count}
           userReactions={post.user_reactions}
+          currentUserId={currentUserId}
         />
         <Link
           href={`/feed/${post.id}`}

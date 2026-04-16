@@ -8,6 +8,7 @@ import { ActiveSessionCard } from "./active-session-card";
 import { PendingRequestCard } from "./pending-request-card";
 import { MentorCard } from "./mentor-card";
 import { RequestDialog } from "./request-dialog";
+import { useMentorshipRealtime } from "@/lib/hooks/use-mentorship-realtime";
 
 interface MentorshipDashboardStudentProps {
   currentUserId: string;
@@ -28,6 +29,7 @@ export function MentorshipStudentDashboard({
 }: MentorshipDashboardStudentProps) {
   const [selectedMentor, setSelectedMentor] = useState<SuggestedMentor | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  useMentorshipRealtime(currentUserId);
 
   const handleOpenRequest = () => {
     setSelectedMentor(null);
