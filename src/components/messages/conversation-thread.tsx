@@ -131,7 +131,14 @@ export function ConversationThread({
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        // Status callback — utile pour diagnostiquer les échecs silencieux
+        // (TIMED_OUT, CHANNEL_ERROR) qui laissaient la conversation "figée"
+        // sans aucun log. On se limite au warn pour éviter le bruit en dev.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime:dm-thread] ${status}`, err);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

@@ -86,7 +86,11 @@ export function ConversationList({
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime:dm-list] ${status}`, err);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
