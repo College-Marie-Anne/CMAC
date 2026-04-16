@@ -54,56 +54,59 @@ export function ReactionBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey]);
 
-  // Realtime : INSERT/DELETE de réactions par d'AUTRES utilisatrices sur ce
-  // post/commentaire. On filtre côté client par user_id ≠ currentUserId car
-  // nos propres réactions sont déjà gérées par l'optimistic update
-  // (sinon on double-compterait).
+  // Realtime : on écoute la valeur AUTORITATIVE `reaction_count` sur la row
+  // parente (forum_posts / forum_comments) plutôt que les events INSERT/DELETE
+  // de forum_reactions.
+  //
+  // Pourquoi ce changement :
+  //   L'ancienne version écoutait forum_reactions INSERT/DELETE et faisait
+  //   count++/--. Elle causait un double-count parce que :
+  //     1. Le trigger DB `update_post_reaction_count` met à jour forum_posts.reaction_count.
+  //     2. PostFeed subscribe UPDATE forum_posts et propage la nouvelle valeur
+  //        au PostCard → ReactionBar reçoit une new prop → useEffect resync.
+  //     3. Mais ReactionBar ecoutait aussi INSERT forum_reactions → count++
+  //        → 2e incrémentation.
+  //   Résultat : après quelques réactions croisées, le compteur divergeait.
+  //
+  //   En écoutant directement UPDATE sur la row parente, on reçoit la valeur
+  //   serveur officielle. setCount(value) est idempotent — si PostFeed ou le
+  //   useEffect l'a déjà fait, pas de problème. Plus de filter user_id
+  //   nécessaire, plus de risque de double-count.
+  //
+  //   Bénéfice secondaire : les commentaires bénéficient aussi de la MAJ
+  //   live (CommentSection ne propageait pas reaction_count dans son handler
+  //   UPDATE, seulement content/is_edited/is_deleted).
   useEffect(() => {
     const supabase = createClient();
-    const targetCol = targetType === "post" ? "post_id" : "comment_id";
+    const table = targetType === "post" ? "forum_posts" : "forum_comments";
 
     const channel = supabase
-      .channel(`reactions:${targetType}:${targetId}:${instanceId}`)
+      .channel(`reactions-count:${targetType}:${targetId}:${instanceId}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "UPDATE",
           schema: "public",
-          table: "forum_reactions",
-          filter: `${targetCol}=eq.${targetId}`,
+          table,
+          filter: `id=eq.${targetId}`,
         },
         (payload) => {
-          const raw = payload.new as { user_id: string };
-          if (currentUserId && raw.user_id === currentUserId) return;
-          setCount((c) => c + 1);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "forum_reactions",
-          filter: `${targetCol}=eq.${targetId}`,
-        },
-        (payload) => {
-          // REPLICA IDENTITY FULL (migration 033) garantit que payload.old
-          // contient toutes les colonnes, dont user_id.
-          const old = payload.old as { user_id?: string };
-          if (currentUserId && old.user_id === currentUserId) return;
-          setCount((c) => Math.max(0, c - 1));
+          const raw = payload.new as { reaction_count?: number };
+          if (typeof raw.reaction_count === "number") {
+            setCount(raw.reaction_count);
+          }
         }
       )
       .subscribe((status, err) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn(`[realtime:reactions] ${status}`, err);
+          console.warn(`[realtime:reaction-count] ${status}`, err);
         }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [targetId, targetType, currentUserId, instanceId]);
+  }, [targetId, targetType, instanceId]);
 
   const handleToggle = (emoji: ReactionEmoji) => {
     // Optimistic update
