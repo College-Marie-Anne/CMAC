@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MoreHorizontal, Pencil, Trash2, Reply, Flag } from "lucide-react";
 import { UserAvatar } from "./user-avatar";
@@ -35,8 +36,17 @@ export function CommentItem({
   const [editContent, setEditContent] = useState(comment.content);
   const [showReply, setShowReply] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  // isLocallyDeleted : masque le commentaire IMMÉDIATEMENT après la suppression,
+  // sans attendre le re-fetch serveur. Sans ce flag, `deleteOwnCommentAction`
+  // UPDATE is_deleted=true en DB + revalidatePath mais le state React local ne
+  // bouge pas → le commentaire reste visible jusqu'à navigation/reload, ce qui
+  // donnait l'impression que "la suppression ne marche pas".
+  const [isLocallyDeleted, setIsLocallyDeleted] = useState(false);
+  const router = useRouter();
   const isAuthor = comment.author?.id === currentUserId;
   const canShowMenu = isAuthor || isAdmin || (!!comment.author && !!currentUserId);
+
+  if (isLocallyDeleted) return null;
 
   const handleSaveEdit = async () => {
     if (!editContent.trim()) return;
@@ -181,8 +191,15 @@ export function CommentItem({
                     {(isAuthor || isAdmin) && (
                       <DeleteConfirmDialog
                         onConfirm={async () => {
-                          await deleteOwnCommentAction(comment.id);
-                          setShowMenu(false);
+                          const result = await deleteOwnCommentAction(comment.id);
+                          if (result.success) {
+                            setIsLocallyDeleted(true);
+                            setShowMenu(false);
+                            // Refetch pour aligner le compteur `comments.length`
+                            // + retirer les réponses imbriquées éventuelles côté
+                            // parent (CommentSection re-render après refresh).
+                            router.refresh();
+                          }
                         }}
                         title="Supprimer ce commentaire ?"
                         trigger={
