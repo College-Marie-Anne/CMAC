@@ -182,12 +182,18 @@ export function CommentItem({
                       <DeleteConfirmDialog
                         onConfirm={async () => {
                           await deleteOwnCommentAction(comment.id);
+                          setShowMenu(false);
                         }}
                         title="Supprimer ce commentaire ?"
                         trigger={
+                          // Pas de setShowMenu(false) ici : ce onClick ferait
+                          // démonter le menu avant que DeleteConfirmDialog puisse
+                          // passer son state interne à open=true (les 2 setState
+                          // sont batched par React → le composant disparaît avant
+                          // de pouvoir afficher le modal). Le menu ferme via
+                          // l'overlay du dialog ou à la fin de onConfirm.
                           <button
                             type="button"
-                            onClick={() => setShowMenu(false)}
                             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-red-50"
                           >
                             <Trash2 size={12} /> Supprimer
