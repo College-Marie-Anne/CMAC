@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Send, ImagePlus, X, Loader2 } from "lucide-react";
+import { Send, ImagePlus, X } from "lucide-react";
 import { sendMessageAction } from "@/actions/messages";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
@@ -63,6 +63,19 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
     if (!trimmedContent && !imageFile) return;
     if (isSending) return;
 
+    // Optimistic UI pour les messages texte uniquement : on vide le textarea
+    // immédiatement et on laisse le Realtime afficher le message côté thread
+    // dès qu'il est commité (~200–500 ms). Pour les messages avec image,
+    // on garde l'indicateur `isSending` — l'upload prend du temps et
+    // l'utilisatrice doit savoir que ça travaille.
+    const hasImage = imageFile !== null;
+    const pendingImage = imageFile; // capture pour restore si échec
+    const pendingPreview = imagePreview;
+
+    if (!hasImage) {
+      setContent("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    }
     setIsSending(true);
     setError(null);
 
@@ -78,7 +91,6 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
         try {
           toUpload = await compressImage(imageFile, { maxWidth: 1200 });
         } catch {
-          // Fallback : si compression échoue, on upload l'original
           toUpload = imageFile;
         }
 
@@ -95,32 +107,38 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
           return;
         }
 
-        // Store the path; signed URLs are generated when displaying
         imageUrl = path;
       }
 
       const result = await sendMessageAction(conversationId, {
-        content: trimmedContent || " ", // Ensure content is not empty (image-only messages get a space)
+        content: trimmedContent || " ",
         image_url: imageUrl,
       });
 
       if (!result.success) {
+        // Restore le texte pour correction (sauf si l'utilisatrice a déjà commencé
+        // à taper un nouveau message — on ne l'écrase pas).
+        if (!hasImage && content === "") {
+          setContent(trimmedContent);
+        }
         setError(result.error ?? "Erreur inconnue");
         setIsSending(false);
         return;
       }
 
-      // Clear input
-      setContent("");
+      // Success — nettoyage complet
+      if (hasImage) setContent("");
       removeImage();
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
       onMessageSent?.();
     } catch {
+      if (!hasImage && content === "") setContent(trimmedContent);
       setError("Erreur lors de l'envoi");
     } finally {
       setIsSending(false);
+      // Évite un warning TS sur variables capturées non utilisées
+      void pendingImage;
+      void pendingPreview;
     }
   };
 
@@ -186,7 +204,8 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
           className="hidden"
         />
 
-        {/* Textarea */}
+        {/* Textarea — jamais disabled : l'utilisatrice peut composer le
+            prochain message pendant qu'un upload image est en cours */}
         <textarea
           ref={textareaRef}
           value={content}
@@ -198,23 +217,22 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
           placeholder="Votre message…"
           rows={1}
           maxLength={1000}
-          disabled={isSending}
-          className="flex-1 resize-none rounded-2xl bg-gray-50 border border-gray-200 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cma-bordeaux/20 focus:border-cma-bordeaux/30 disabled:opacity-50 transition-colors"
+          className="flex-1 resize-none rounded-2xl bg-gray-50 border border-gray-200 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cma-bordeaux/20 focus:border-cma-bordeaux/30 transition-colors"
         />
 
-        {/* Send button */}
+        {/* Send button — opacity subtil pendant upload image, pas de spinner
+            qui swap le contenu (cassait l'immersion) */}
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSend}
-          className="p-2.5 rounded-xl bg-cma-bordeaux text-white hover:bg-cma-bordeaux-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+          className={`p-2.5 rounded-xl bg-cma-bordeaux text-white hover:bg-cma-bordeaux-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 ${
+            isSending ? "opacity-70 animate-pulse" : ""
+          }`}
           aria-label="Envoyer"
+          aria-busy={isSending}
         >
-          {isSending ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <Send size={18} />
-          )}
+          <Send size={18} />
         </button>
       </div>
     </div>

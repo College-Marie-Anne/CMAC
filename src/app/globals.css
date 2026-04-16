@@ -147,12 +147,26 @@
   }
 }
 
-/* Empêche le flash blanc avant l'hydratation React.
-   Ce fond est peint immédiatement par le navigateur, avant tout JS. */
+/* Fond de base pendant les transitions de route et avant l'hydratation.
+   On utilise le gris `bg-cma-gris` (#F5F5F5) car :
+     - Il matche le bg des pages protégées (/feed, /directory, /admin, etc.)
+       → pas de flash visible lors des navigations internes.
+     - Les pages publiques (login, register, splash, pending, maintenance,
+       offline, not-found) définissent leur propre gradient bordeaux inline
+       en SSR, qui recouvre ce gris avant même le premier paint utilisateur
+       → pas de flash sur elles non plus.
+   Avant (bordeaux #3a000f) : flash rouge entre chaque transition vers une
+   page protégée, visible ~100 ms → cassait l'immersion. */
 html,
 body {
-  background-color: #3a000f !important;
+  background-color: #F5F5F5;
   overscroll-behavior: none;
+}
+
+/* Dark mode : le body suit si l'utilisatrice a le thème sombre. */
+html.dark,
+html.dark body {
+  background-color: #0D0D0D;
 }
 
 /* Force light mode inside admin layout — dark mode is user-pages only */

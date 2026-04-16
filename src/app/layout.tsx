@@ -49,15 +49,13 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('cmac-theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})()`,
           }}
         />
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "linear-gradient(160deg, #3a000f 0%, #5c0018 30%, #800020 60%, #5c0018 100%)",
-            zIndex: -1,
-          }}
-        />
+        {/* Le fond bordeaux fixed global a été retiré : il causait un flash
+            rouge perceptible entre les transitions de pages protégées (feed,
+            directory, admin…) dont le bg est gris clair. Chaque page publique
+            (login, register, splash, pending, maintenance, offline,
+            not-found) applique désormais son propre gradient bordeaux inline
+            en SSR, ce qui suffit pour le branding sans polluer les autres
+            routes. */}
         {/* scope: "/" — le SW contrôle tout le site (requis pour que Chrome
             affiche l'install prompt). @serwist/turbopack renvoie l'en-tête
             Service-Worker-Allowed: / côté serveur qui autorise ce scope.
