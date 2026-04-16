@@ -165,7 +165,10 @@ export async function registerAction(
       return { success: false, error: "Cet email est déjà utilisé" };
     }
     console.error("[register] signUp failed:", authError);
-    return { success: false, error: "Erreur lors de la création du compte" };
+    return {
+      success: false,
+      error: authError?.message ?? "Erreur lors de la création du compte",
+    };
   }
 
   const userId = authData.user.id;

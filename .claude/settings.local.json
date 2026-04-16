@@ -198,7 +198,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/messages)",
       "Bash(ls C:/Projets/CMAC/src/app/register/invite C:/Projets/CMAC/src/app/register/invite/[token])",
       "Bash(grep -l \"invitation_token\\\\|DROP FUNCTION.*invitation\" C:/Projets/CMAC/supabase/migrations/*.sql)",
-      "Bash(curl -s \"http://localhost:3000/register/invite/0fed5637-a09e-418a-8896-49d7b8ef5d1e\")"
+      "Bash(curl -s \"http://localhost:3000/register/invite/0fed5637-a09e-418a-8896-49d7b8ef5d1e\")",
+      "Bash(grep -n \"send_direct_message\\\\|create_conversation\" C:/Projets/CMAC/supabase/migrations/*.sql)"
     ]
   }
 }

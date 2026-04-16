@@ -1,5 +1,6 @@
 "use server";
 
+import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -43,6 +44,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
 
   const { identifier, password, dob, otp_code } = parsed.data;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   // ─── Étape A — Résolution de l'email ───
 
@@ -62,7 +64,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
       return { success: false, error: "Aucun compte trouvé avec cet identifiant" };
     }
 
-    const { data: resolvedEmail } = await supabase.rpc(
+    const { data: resolvedEmail } = await admin.rpc(
       "resolve_email_by_profile_id",
       { p_profile_id: profileId }
     );
@@ -113,7 +115,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     // Même nom + même DOB → envoyer un code OTP par email
     if (matchedIds.length > 1 && dob && !otp_code) {
       for (const p of matchedIds) {
-        const { data: pEmail } = await supabase.rpc(
+        const { data: pEmail } = await admin.rpc(
           "resolve_email_by_profile_id",
           { p_profile_id: p.id }
         );
@@ -137,7 +139,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     if (matchedIds.length > 1 && dob && otp_code) {
       let verified = false;
       for (const p of matchedIds) {
-        const { data: pEmail } = await supabase.rpc(
+        const { data: pEmail } = await admin.rpc(
           "resolve_email_by_profile_id",
           { p_profile_id: p.id }
         );
@@ -168,7 +170,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
 
     // 1 seul résultat
     if (matchedIds.length === 1 && !email) {
-      const { data: resolvedEmail } = await supabase.rpc(
+      const { data: resolvedEmail } = await admin.rpc(
         "resolve_email_by_profile_id",
         { p_profile_id: matchedIds[0].id }
       );
