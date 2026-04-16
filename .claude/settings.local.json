@@ -195,7 +195,10 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/login)",
       "Bash(curl -s http://localhost:3000/serwist/sw.js)",
       "Bash(grep -n \"search_vector\\\\|tsvector\" C:/Projets/CMAC/supabase/migrations/*.sql)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/messages)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/messages)",
+      "Bash(ls C:/Projets/CMAC/src/app/register/invite C:/Projets/CMAC/src/app/register/invite/[token])",
+      "Bash(grep -l \"invitation_token\\\\|DROP FUNCTION.*invitation\" C:/Projets/CMAC/supabase/migrations/*.sql)",
+      "Bash(curl -s \"http://localhost:3000/register/invite/0fed5637-a09e-418a-8896-49d7b8ef5d1e\")"
     ]
   }
 }
