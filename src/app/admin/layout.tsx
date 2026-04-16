@@ -42,11 +42,7 @@ export default async function AdminLayout({
     }
   }
 
-  // Mettre à jour last_seen_at
-  await supabase
-    .from("profiles")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", user.id);
+  // last_seen_at centralisé dans proxy.ts (fire-and-forget)
 
   return (
     <div className="flex min-h-screen" data-theme="light" style={{ colorScheme: "light" }}>

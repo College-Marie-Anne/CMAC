@@ -46,47 +46,46 @@ export default async function OpportunitiesPage({
     redirect("/login");
   }
 
-  await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
-
-  // Fetch unread DM count (non-admin only)
-  let unreadDmCount = 0;
-  if (profile.role !== "admin") {
-    const { data: myConvs } = await supabase
-      .from("conversations")
-      .select("id")
-      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
-    const convIds = myConvs?.map((c) => c.id) ?? [];
-    if (convIds.length > 0) {
-      const { count } = await supabase
-        .from("direct_messages")
-        .select("id", { count: "exact", head: true })
-        .in("conversation_id", convIds)
-        .neq("sender_id", user.id)
-        .eq("is_read", false);
-      unreadDmCount = count ?? 0;
-    }
-  }
-
   const isAdmin = profile.role === "admin";
   const initials = `${(profile.first_name || "?")[0]}${(profile.last_name || "?")[0]}`;
 
-  // Fetch unread notifications count
-  const { count: unreadNotifCount } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("recipient_id", user.id)
-    .eq("is_read", false);
+  // ─── Batch parallèle : convs + notifs + tag opportunités ───
+  const [convResult, notifResult, oppTagResult] = await Promise.all([
+    !isAdmin
+      ? supabase
+          .from("conversations")
+          .select("id")
+          .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_id", user.id)
+      .eq("is_read", false),
+    supabase
+      .from("forum_tags")
+      .select("id, name, color, is_system")
+      .eq("name", "Bourses & Opportunités")
+      .single(),
+  ]);
 
-  // ─── Fetch forum data ───
-  // Fetch the specific 'Bourses & Opportunités' tag
-  const { data: oppTag } = await supabase
-    .from("forum_tags")
-    .select("id, name, color, is_system")
-    .eq("name", "Bourses & Opportunités")
-    .single();
+  const convIds = (convResult.data ?? []).map((c) => c.id);
+  const unreadNotifCount = notifResult.count;
+  const oppTag = oppTagResult.data;
+
+  let unreadDmCount = 0;
+  if (convIds.length > 0) {
+    const { count } = await supabase
+      .from("direct_messages")
+      .select("id", { count: "exact", head: true })
+      .in("conversation_id", convIds)
+      .neq("sender_id", user.id)
+      .eq("is_read", false);
+    unreadDmCount = count ?? 0;
+  }
 
   if (!oppTag) {
-    return <div className="p-8 text-center">Tag "Bourses & Opportunités" non configuré en base de données.</div>;
+    return <div className="p-8 text-center">Tag &quot;Bourses &amp; Opportunités&quot; non configuré en base de données.</div>;
   }
 
   // Build post queries — specifically for the opportunities tag

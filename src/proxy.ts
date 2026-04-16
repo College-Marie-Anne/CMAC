@@ -164,6 +164,14 @@ export async function proxy(request: NextRequest) {
       url.pathname = "/feed";
       return NextResponse.redirect(url);
     }
+
+    // 8. Centraliser last_seen_at ici (au lieu de chaque page)
+    // Fire-and-forget — pas de await pour ne pas ralentir la navigation.
+    supabase
+      .from("profiles")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", user.id)
+      .then();
   }
 
   return supabaseResponse;

@@ -106,27 +106,26 @@ export default async function NotificationsPage({
   if (referenceIds.length > 0 && notifications && notifications.length > 0) {
     const uniqRef = Array.from(new Set(referenceIds));
 
-    // Forum resolution: reference can be a post_id or comment_id
-    const [{ data: forumPosts }, { data: forumComments }] = await Promise.all([
+    // Résolution forum + mentorship + DM en 1 seul Promise.all (6 requêtes parallèles)
+    const [
+      { data: forumPosts },
+      { data: forumComments },
+      { data: mentorshipSessions },
+      { data: mentorshipRequests },
+      { data: convs },
+      { data: dms },
+    ] = await Promise.all([
       supabase.from("forum_posts").select("id").in("id", uniqRef),
       supabase.from("forum_comments").select("id, post_id").in("id", uniqRef),
-    ]);
-    const postSet = new Set((forumPosts ?? []).map((p) => p.id));
-    const commentToPost = new Map((forumComments ?? []).map((c) => [c.id, c.post_id]));
-
-    // Mentorship resolution: reference can be request_id or session_id
-    const [{ data: mentorshipSessions }, { data: mentorshipRequests }] = await Promise.all([
       supabase.from("mentorship_sessions").select("id").in("id", uniqRef),
       supabase.from("mentorship_requests").select("id").in("id", uniqRef),
-    ]);
-    const mentorshipSessionSet = new Set((mentorshipSessions ?? []).map((s) => s.id));
-    const mentorshipRequestSet = new Set((mentorshipRequests ?? []).map((r) => r.id));
-
-    // DM resolution: reference can be conversation_id or message_id
-    const [{ data: convs }, { data: dms }] = await Promise.all([
       supabase.from("conversations").select("id").in("id", uniqRef),
       supabase.from("direct_messages").select("id, conversation_id").in("id", uniqRef),
     ]);
+    const postSet = new Set((forumPosts ?? []).map((p) => p.id));
+    const commentToPost = new Map((forumComments ?? []).map((c) => [c.id, c.post_id]));
+    const mentorshipSessionSet = new Set((mentorshipSessions ?? []).map((s) => s.id));
+    const mentorshipRequestSet = new Set((mentorshipRequests ?? []).map((r) => r.id));
     const convSet = new Set((convs ?? []).map((c) => c.id));
     const dmToConversation = new Map((dms ?? []).map((m) => [m.id, m.conversation_id]));
 
@@ -167,14 +166,10 @@ export default async function NotificationsPage({
   }
   const totalPages = Math.max(Math.ceil((totalCount ?? 0) / PAGE_SIZE), 1);
 
-  const { data: typeRows } = await supabase
-    .from("notifications")
-    .select("type")
-    .eq("recipient_id", user.id)
-    .limit(2000);
+  // Types disponibles déduits depuis la page courante (évite le SELECT 2000 rows)
   const typeCountMap = new Map<string, number>();
-  for (const row of typeRows ?? []) {
-    typeCountMap.set(row.type, (typeCountMap.get(row.type) ?? 0) + 1);
+  for (const n of notifications ?? []) {
+    typeCountMap.set(n.type, (typeCountMap.get(n.type) ?? 0) + 1);
   }
   const availableTypes = Array.from(typeCountMap.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))

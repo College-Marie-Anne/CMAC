@@ -2,8 +2,8 @@ export type ElectionStatus = "nomination" | "voting" | "completed" | "cancelled"
 
 export type PromotionData = {
   id: string;
-  entry_year: number;
-  graduation_year: number | null;
+  start_date: number;
+  end_date: number | null;
   leader_id: string | null;
   created_at: string;
   leader?: {

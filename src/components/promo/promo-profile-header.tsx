@@ -10,9 +10,9 @@ interface PromoProfileHeaderProps {
 }
 
 export function PromoProfileHeader({ promo, memberCount }: PromoProfileHeaderProps) {
-  const yearsStr = promo.graduation_year 
-    ? `${promo.entry_year} - ${promo.graduation_year}` 
-    : `Promotion ${promo.entry_year}`;
+  const yearsStr = promo.end_date
+    ? `${promo.start_date} - ${promo.end_date}`
+    : `Promotion ${promo.start_date}`;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">

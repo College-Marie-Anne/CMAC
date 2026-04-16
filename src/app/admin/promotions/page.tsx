@@ -32,10 +32,13 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import { compressImage } from "@/lib/image-compress";
+import { updatePromotionAction } from "@/actions/admin";
 
 type Promotion = {
   id: string;
@@ -85,6 +88,14 @@ export default function PromotionsPage() {
 
   // Confirmation rejet
   const [rejectConfirm, setRejectConfirm] = useState<string | null>(null);
+
+  // Édition d'une promotion existante (inline)
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editStart, setEditStart] = useState<number | null>(null);
+  const [editEnd, setEditEnd] = useState<number | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Recherche et tri
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,14 +151,15 @@ export default function PromotionsPage() {
   }, []);
 
   // Upload emblème vers Supabase Storage
-  // Spec §805 : 200x200 max, formats PNG/WebP (transparence préservée — pas de JPEG)
+  // Formats acceptés : PNG, WebP, JPG/JPEG. SVG exclu (XSS).
+  // 200x200 max. compressImage conserve le MIME d'entrée → JPEG reste JPEG,
+  // PNG reste PNG (transparence préservée).
   const uploadEmblem = async (file: File, promoId: string): Promise<string | null> => {
     let toUpload: File;
     try {
       toUpload = await compressImage(file, {
         maxWidth: 200,
         maxHeight: 200,
-        // preferJpeg: false → conserve PNG/WebP (transparence)
       });
     } catch {
       toUpload = file;
@@ -279,6 +291,53 @@ export default function PromotionsPage() {
     fetchPromos();
   };
 
+  // ─── Édition inline d'une promotion ───
+  const startEdit = (promo: PromoWithCount) => {
+    setEditingPromoId(promo.id);
+    setEditName(promo.name);
+    setEditStart(promo.start_date);
+    setEditEnd(promo.end_date);
+    setEditError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingPromoId(null);
+    setEditName("");
+    setEditStart(null);
+    setEditEnd(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingPromoId) return;
+    setEditError(null);
+
+    if (!editName.trim() || editStart === null || editEnd === null) {
+      setEditError("Tous les champs sont requis");
+      return;
+    }
+    if (editStart > editEnd) {
+      setEditError("L'année de début doit être ≤ l'année de fin");
+      return;
+    }
+
+    setEditSaving(true);
+    const result = await updatePromotionAction(editingPromoId, {
+      name: editName.trim(),
+      start_date: editStart,
+      end_date: editEnd,
+    });
+    setEditSaving(false);
+
+    if (!result.success) {
+      setEditError(result.error ?? "Erreur lors de l'enregistrement");
+      return;
+    }
+
+    cancelEdit();
+    fetchPromos();
+  };
+
   // ─── Recherche + tri ───
   // Fonction pure : prend un sous-ensemble (pending/active/rejected) et applique
   // les filtres (nom, plages d'années) puis le tri sélectionné.
@@ -372,12 +431,14 @@ export default function PromotionsPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png,image/webp"
+        accept="image/png,image/webp,image/jpeg"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const input = e.target as any;
+          const file = (input.files as FileList)?.[0];
           if (file) handleEmblemUpload(file);
-          e.target.value = "";
+          input.value = "";
         }}
       />
 
@@ -412,7 +473,7 @@ export default function PromotionsPage() {
             <Input
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery((e.target as any).value)}
               placeholder="Rechercher par nom..."
               className="rounded-xl h-10 pl-9 pr-9"
               aria-label="Rechercher une promotion par nom"
@@ -568,7 +629,7 @@ export default function PromotionsPage() {
               <Label className="text-xs text-gray-500 mb-1.5 block">Nom de la promotion</Label>
               <Input
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName((e.target as any).value)}
                 placeholder="Ex: Promotion Excellence 2024"
                 className="rounded-xl h-10"
               />
@@ -584,12 +645,16 @@ export default function PromotionsPage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1.5 block">Emblème (PNG ou WebP, max 1 MB)</Label>
+              <Label className="text-xs text-gray-500 mb-1.5 block">Emblème (PNG, WebP ou JPG, max 1 MB)</Label>
               <div className="flex items-center gap-3">
                 <Input
                   type="file"
-                  accept="image/png,image/webp"
-                  onChange={(e) => setNewEmblem(e.target.files?.[0] ?? null)}
+                  accept="image/png,image/webp,image/jpeg"
+                  onChange={(e) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const files = (e.target as any).files as FileList | null;
+                    setNewEmblem(files?.[0] ?? null);
+                  }}
                   className="rounded-xl h-10 text-xs"
                 />
                 {newEmblem && (
@@ -653,7 +718,7 @@ export default function PromotionsPage() {
                     <button
                       onClick={() => {
                         setTargetPromoId(promo.id);
-                        fileInputRef.current?.click();
+                        (fileInputRef.current as any)?.click();
                       }}
                       className="mt-4 w-full p-3 rounded-xl bg-gray-50 border border-dashed border-gray-200 hover:border-cma-or hover:bg-cma-or/5 transition-colors cursor-pointer"
                     >
@@ -748,7 +813,9 @@ export default function PromotionsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activePromos.map((promo) => (
+            {activePromos.map((promo) => {
+              const isEditing = editingPromoId === promo.id;
+              return (
               <Card key={promo.id} className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-5">
                   {/* Emblème ou placeholder */}
@@ -777,39 +844,130 @@ export default function PromotionsPage() {
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-semibold text-gray-900">{promo.name}</h3>
-                  <p className="text-xs text-gray-400 mt-1">{promo.start_date} → {promo.end_date}</p>
-
-                  {/* Chef de promo */}
-                  {promo.leaderName && (
-                    <div className="flex items-center gap-1.5 mt-2 text-xs text-cma-or">
-                      <Crown size={12} />
-                      <span>Chef : {promo.leaderName}</span>
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      {editError && (
+                        <div className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                          <AlertTriangle size={12} aria-hidden="true" /> {editError}
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-[11px] text-gray-500 mb-1 block">Nom</Label>
+                        <Input
+                          value={editName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName((e.target as any).value)}
+                          className="rounded-lg h-9 text-sm"
+                          maxLength={150}
+                          autoFocus
+                          aria-label="Nom de la promotion"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[11px] text-gray-500 mb-1 block">Début</Label>
+                          <YearSelect
+                            value={editStart}
+                            onChange={setEditStart}
+                            placeholder="Début"
+                            variant="light"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-gray-500 mb-1 block">Fin</Label>
+                          <YearSelect
+                            value={editEnd}
+                            onChange={setEditEnd}
+                            placeholder="Fin"
+                            variant="light"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          onClick={saveEdit}
+                          disabled={editSaving}
+                          className="rounded-lg text-xs flex-1 bg-cma-vert text-white gap-1 hover:bg-cma-vert/90"
+                        >
+                          {editSaving ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Save size={12} />
+                          )}
+                          Enregistrer
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={cancelEdit}
+                          disabled={editSaving}
+                          className="rounded-lg text-xs"
+                        >
+                          Annuler
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      <h3 className="text-sm font-semibold text-gray-900">{promo.name}</h3>
+                      <p className="text-xs text-gray-400 mt-1">{promo.start_date} → {promo.end_date}</p>
 
-                  {/* Bouton emblème */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setTargetPromoId(promo.id);
-                      fileInputRef.current?.click();
-                    }}
-                    disabled={uploadingId === promo.id}
-                    className="mt-3 w-full rounded-lg text-xs gap-1 text-cma-or border-cma-or/30 hover:bg-cma-or/5"
-                  >
-                    {uploadingId === promo.id ? (
-                      <><Loader2 size={12} className="animate-spin" /> Upload...</>
-                    ) : promo.emblem_url ? (
-                      <><ImageIcon size={12} /> Changer l&apos;emblème</>
-                    ) : (
-                      <><Upload size={12} /> Ajouter l&apos;emblème</>
-                    )}
-                  </Button>
+                      {/* Chef de promo */}
+                      {promo.leaderName && (
+                        <div className="flex items-center gap-1.5 mt-2 text-xs text-cma-or">
+                          <Crown size={12} />
+                          <span>Chef : {promo.leaderName}</span>
+                        </div>
+                      )}
+
+                      {/* Boutons modifier + emblème */}
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEdit(promo)}
+                          className="rounded-lg text-xs gap-1 flex-1 text-gray-600 hover:bg-gray-50"
+                          aria-label={`Modifier la promotion ${promo.name}`}
+                        >
+                          <Pencil size={12} aria-hidden="true" />
+                          Modifier
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setTargetPromoId(promo.id);
+                            (fileInputRef.current as any)?.click();
+                          }}
+                          disabled={uploadingId === promo.id}
+                          className="rounded-lg text-xs gap-1 flex-1 text-cma-or border-cma-or/30 hover:bg-cma-or/5"
+                          aria-label={
+                            promo.emblem_url
+                              ? `Changer l'emblème de ${promo.name}`
+                              : `Ajouter un emblème à ${promo.name}`
+                          }
+                        >
+                          {uploadingId === promo.id ? (
+                            <>
+                              <Loader2 size={12} className="animate-spin" /> Upload...
+                            </>
+                          ) : promo.emblem_url ? (
+                            <>
+                              <ImageIcon size={12} /> Emblème
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={12} /> Emblème
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

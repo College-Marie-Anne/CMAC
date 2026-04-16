@@ -46,38 +46,43 @@ export default async function FeedPage({
     redirect("/login");
   }
 
-  await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
-
-  // Fetch unread DM count (non-admin only)
-  let unreadDmCount = 0;
-  if (profile.role !== "admin") {
-    const { data: myConvs } = await supabase
-      .from("conversations")
-      .select("id")
-      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
-    const convIds = myConvs?.map((c) => c.id) ?? [];
-    if (convIds.length > 0) {
-      const { count } = await supabase
-        .from("direct_messages")
-        .select("id", { count: "exact", head: true })
-        .in("conversation_id", convIds)
-        .neq("sender_id", user.id)
-        .eq("is_read", false);
-      unreadDmCount = count ?? 0;
-    }
-  }
-
   const isAdmin = profile.role === "admin";
   const initials = `${(profile.first_name || "?")[0]}${(profile.last_name || "?")[0]}`;
-  const { count: unreadNotifCount } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("recipient_id", user.id)
-    .eq("is_read", false);
 
-  // ─── Fetch forum data ───
-  // First fetch tags to identify system tags (excluded from feed)
-  const { data: allTags } = await supabase.from("forum_tags").select("id, name, color, is_system").order("name");
+  // ─── Batch 1 : requêtes indépendantes en parallèle ───
+  const [convResult, notifResult, tagsResult] = await Promise.all([
+    !isAdmin
+      ? supabase
+          .from("conversations")
+          .select("id")
+          .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_id", user.id)
+      .eq("is_read", false),
+    supabase
+      .from("forum_tags")
+      .select("id, name, color, is_system")
+      .order("name"),
+  ]);
+
+  const convIds = (convResult.data ?? []).map((c) => c.id);
+  const unreadNotifCount = notifResult.count;
+  const allTags = tagsResult.data;
+
+  // DM unread (dépend des convIds, donc après batch 1)
+  let unreadDmCount = 0;
+  if (convIds.length > 0) {
+    const { count } = await supabase
+      .from("direct_messages")
+      .select("id", { count: "exact", head: true })
+      .in("conversation_id", convIds)
+      .neq("sender_id", user.id)
+      .eq("is_read", false);
+    unreadDmCount = count ?? 0;
+  }
   const systemTagIds = (allTags ?? []).filter((t) => t.is_system).map((t) => t.id);
 
   // Build post queries — exclude system-tagged posts (Bourses & Opportunités → /opportunities only)

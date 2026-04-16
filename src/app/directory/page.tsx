@@ -33,12 +33,6 @@ export default async function DirectoryPage({
 
   if (!user) redirect("/login");
 
-  // Update last_seen_at
-  await supabase
-    .from("profiles")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", user.id);
-
   // Parse filters from URL
   const filters: DirectoryFilters = {
     q: sp.q?.trim() ?? "",

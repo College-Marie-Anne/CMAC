@@ -113,7 +113,21 @@
       "Bash(grep -nB 2 -A 30 \"createElement.*canvas\\\\|new Image\\(\\)\" src/components/feed/create-post-dialog.tsx)",
       "Bash(grep -nA 5 \"image\\\\|upload\\\\|file\" src/components/feed/create-post-dialog.tsx)",
       "Bash(echo \"TSC=$?\")",
-      "Bash(echo \"BUILD=$?\")"
+      "Bash(echo \"BUILD=$?\")",
+      "Bash(grep -nB 1 -A 1 'accept=.*image\\\\|emblem\\\\|emblems' src/app/admin/promotions/page.tsx)",
+      "Bash(grep -rnB 1 -A 8 \"emblems\\\\|allowed_mime\" supabase/)",
+      "Bash(grep -nB 1 -A 15 \"trg_audit_promotions\\\\|FUNCTION audit_promotions\\\\|FOR.*ON promotions\" supabase/migrations/020_audit_log_triggers.sql)",
+      "Bash(grep -nB 1 -A 12 \"POLICY.*admin_audit_log\\\\|CREATE TABLE admin_audit_log\" supabase/migrations/*.sql)",
+      "Bash(grep -nB 1 -A 20 \"FUNCTION log_admin_action\\\\|CREATE FUNCTION log_admin\" supabase/migrations/*.sql)",
+      "Bash(cat src/app/admin/loading.tsx)",
+      "Bash(cat src/app/directory/loading.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(grep -B 2 -A 15 \"script tag while rendering\\\\|Encountered a script tag\" node_modules/next/dist/**/*.md)",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(find src/app -name \"loading.tsx\" -type f ! -path \"src/app/loading.tsx\" -delete)",
+      "Bash(npm ls:*)",
+      "Bash(grep -B 2 -A 20 \"swSrc\\\\|swDest\\\\|swUrl\" node_modules/@serwist/build/dist/*.d.ts)",
+      "WebFetch(domain:serwist.pages.dev)"
     ]
   }
 }

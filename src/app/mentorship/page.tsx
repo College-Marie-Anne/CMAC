@@ -43,9 +43,6 @@ export default async function MentorshipPage() {
     redirect("/login");
   }
 
-  // Mettre à jour last_seen_at
-  await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id);
-
   const isAdmin = profile.role === "admin";
   const isAlumni = profile.role === "alumni";
   const isMentee = profile.role === "student" || profile.role === "s4";

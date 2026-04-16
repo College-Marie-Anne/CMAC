@@ -36,7 +36,7 @@ export default async function PromoPage() {
 
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("*, promotions(id, entry_year, graduation_year, leader_id)")
+    .select("*, promotions(id, start_date, end_date, leader_id)")
     .eq("id", user.id)
     .single();
 
@@ -109,69 +109,111 @@ export default async function PromoPage() {
     );
   }
 
-  // Phase Sync (Lazy Evaluation)
-  await syncElectionStateAction(profile.promo_id);
+  // Phase Sync — fire-and-forget (ne bloque pas le rendu)
+  syncElectionStateAction(profile.promo_id).catch(() => {});
 
-  // Data fetching for promo members count
-  const { count: memberCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("promo_id", profile.promo_id);
+  // ─── Batch 1 : 6 requêtes indépendantes en parallèle ───
+  const [
+    memberResult,
+    promoResult,
+    electionResult,
+    tagsResult,
+    convsResult,
+    notifResult,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_id", profile.promo_id),
+    supabase
+      .from("promotions")
+      .select(
+        `id, start_date, end_date, leader_id, created_at,
+         leader:leader_id(id, first_name, last_name, username, avatar_url)`
+      )
+      .eq("id", profile.promo_id)
+      .single(),
+    supabase
+      .from("promo_elections")
+      .select("*")
+      .eq("promo_id", profile.promo_id)
+      .in("status", ["nomination", "voting"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("forum_tags").select("*").order("name"),
+    supabase
+      .from("conversations")
+      .select("id")
+      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`),
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_id", user.id)
+      .eq("is_read", false),
+  ]);
 
-  // Fetch Promo Details
-  const { data: promoData } = await supabase
-    .from("promotions")
-    .select(`
-      id, entry_year, graduation_year, leader_id, created_at,
-      leader:leader_id(id, first_name, last_name, username, avatar_url)
-    `)
-    .eq("id", profile.promo_id)
-    .single();
+  const memberCount = memberResult.count;
+  const promoData = promoResult.data;
+  const activeElection = electionResult.data;
+  const tags = (tagsResult.data || []) as ForumTag[];
+  const systemTagIds = tags.filter((t) => t.is_system).map((t) => t.id);
+  const unreadNotifCount = notifResult.count;
 
-  // Fetch Active Election
-  const { data: activeElection } = await supabase
-    .from("promo_elections")
-    .select("*")
-    .eq("promo_id", profile.promo_id)
-    .in("status", ["nomination", "voting"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // ─── Batch 2 : posts + DM count (dépendent de batch 1) ───
+  const convIds = (convsResult.data ?? []).map((c) => c.id);
 
-  // Fetch Tags & Posts
-  const { data: tagsRaw } = await supabase
-    .from("forum_tags")
-    .select("*")
-    .order("name");
-  
-  const tags = (tagsRaw || []) as ForumTag[];
-  const systemTagIds = tags.filter(t => t.is_system).map(t => t.id);
+  const [postsResult, commentsResult, reactionsResult, dmResult] =
+    await Promise.all([
+      supabase
+        .from("forum_posts")
+        .select(
+          `id, content, image_url, promo_id, reaction_count, is_pinned, is_edited, created_at, updated_at,
+           author:author_id(id, first_name, last_name, username, avatar_url),
+           tag:tag_id(id, name, color)`
+        )
+        .eq("is_deleted", false)
+        .eq("promo_id", profile.promo_id)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(20),
+      // Les comments + reactions seront faites après récupération des postIds
+      // On passe un placeholder pour garder la structure Promise.all
+      Promise.resolve(null),
+      Promise.resolve(null),
+      convIds.length > 0
+        ? supabase
+            .from("direct_messages")
+            .select("id", { count: "exact", head: true })
+            .in("conversation_id", convIds)
+            .neq("sender_id", user.id)
+            .eq("is_read", false)
+        : Promise.resolve({ count: 0 }),
+    ]);
 
-  const { data: postsRaw } = await supabase
-    .from("forum_posts")
-    .select(`
-      id, content, image_url, promo_id, reaction_count, is_pinned, is_edited, created_at, updated_at,
-      author:author_id(id, first_name, last_name, username, avatar_url),
-      tag:tag_id(id, name, color)
-    `)
-    .eq("is_deleted", false)
-    .eq("promo_id", profile.promo_id)
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const postsRaw = postsResult.data;
+  const unreadDmCount = dmResult?.count ?? 0;
 
+  // ─── Batch 3 : comments + reactions (dépendent des postIds) ───
   const postIds = postsRaw?.map((p) => p.id) ?? [];
-  const { data: commentCounts } = await supabase
-    .from("forum_comments")
-    .select("post_id")
-    .in("post_id", postIds)
-    .eq("is_deleted", false);
-
-  const { data: userReactions } = await supabase
-    .from("forum_reactions")
-    .select("post_id, emoji")
-    .eq("user_id", user.id)
-    .in("post_id", postIds);
+  const [{ data: commentCounts }, { data: userReactions }] = await Promise.all(
+    [
+      postIds.length > 0
+        ? supabase
+            .from("forum_comments")
+            .select("post_id")
+            .in("post_id", postIds)
+            .eq("is_deleted", false)
+        : Promise.resolve({ data: [] }),
+      postIds.length > 0
+        ? supabase
+            .from("forum_reactions")
+            .select("post_id, emoji")
+            .eq("user_id", user.id)
+            .in("post_id", postIds)
+        : Promise.resolve({ data: [] }),
+    ]
+  );
 
   const countMap: Record<string, number> = {};
   for (const c of commentCounts ?? []) {
@@ -184,37 +226,14 @@ export default async function PromoPage() {
     reactionMap[r.post_id].push(r.emoji as ReactionEmoji);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const posts: ForumPost[] = (postsRaw || []).map((p: any) => ({
     ...p,
     author: Array.isArray(p.author) ? p.author[0] : p.author,
     tag: Array.isArray(p.tag) ? p.tag[0] : p.tag,
     comment_count: countMap[p.id] ?? 0,
-    user_reactions: reactionMap[p.id] ?? []
+    user_reactions: reactionMap[p.id] ?? [],
   }));
-
-  // Fetch Unread Messages
-  let unreadDmCount = 0;
-  const { data: myConvs } = await supabase
-    .from("conversations")
-    .select("id")
-    .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
-  const convIds = myConvs?.map((c) => c.id) ?? [];
-  if (convIds.length > 0) {
-    const { count } = await supabase
-      .from("direct_messages")
-      .select("id", { count: "exact", head: true })
-      .in("conversation_id", convIds)
-      .neq("sender_id", user.id)
-      .eq("is_read", false);
-    unreadDmCount = count ?? 0;
-  }
-
-  // Fetch Unread Notifications
-  const { count: unreadNotifCount } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("recipient_id", user.id)
-    .eq("is_read", false);
 
   const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
   const isAdmin = profile.role === "admin";

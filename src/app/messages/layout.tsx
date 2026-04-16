@@ -37,12 +37,6 @@ export default async function MessagesLayout({
     redirect("/feed");
   }
 
-  // Update last_seen_at
-  await supabase
-    .from("profiles")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", user.id);
-
   // Fetch conversations
   const { data: rawConvs } = await supabase
     .from("conversations")

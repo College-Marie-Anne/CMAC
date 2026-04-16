@@ -7,6 +7,10 @@ import {
   resetPasswordSchema,
   type ResetPasswordData,
 } from "@/lib/validations/password";
+import {
+  updatePromotionSchema,
+  type UpdatePromotionData,
+} from "@/lib/validations/promo";
 
 export type AdminActionResult = {
   success: boolean;
@@ -779,6 +783,96 @@ export async function updateProfileAction(
 
     revalidatePath(`/admin/users/${userId}`);
     revalidatePath("/admin/users");
+    return { success: true };
+  } catch (e: unknown) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/* ─────────── Promotions ─────────── */
+
+/**
+ * Met à jour le nom et les années d'une promotion existante.
+ * Spec §457 (action `update_promo`), §202-211 (table promotions).
+ *
+ * - Vérifie l'unicité du nom (excepté la promo elle-même)
+ * - Garde-fou : start_date <= end_date
+ * - Loggue dans admin_audit_log via RPC log_admin_action
+ */
+export async function updatePromotionAction(
+  promoId: string,
+  data: UpdatePromotionData
+): Promise<AdminActionResult> {
+  try {
+    const { supabase } = await requireAdmin();
+
+    const parsed = updatePromotionSchema.safeParse(data);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.issues[0].message };
+
+    // 1. Vérifier que la promo existe + récupérer l'état avant
+    const { data: existing, error: fetchErr } = await supabase
+      .from("promotions")
+      .select("id, name, start_date, end_date")
+      .eq("id", promoId)
+      .maybeSingle();
+
+    if (fetchErr || !existing)
+      return { success: false, error: "Promotion introuvable" };
+
+    // 2. Unicité du nom (uniquement si modifié)
+    if (parsed.data.name !== existing.name) {
+      const { data: dup } = await supabase
+        .from("promotions")
+        .select("id")
+        .eq("name", parsed.data.name)
+        .neq("id", promoId)
+        .maybeSingle();
+
+      if (dup)
+        return {
+          success: false,
+          error: "Une autre promotion porte déjà ce nom",
+        };
+    }
+
+    // 3. UPDATE
+    const { error: updateErr } = await supabase
+      .from("promotions")
+      .update({
+        name: parsed.data.name,
+        start_date: parsed.data.start_date,
+        end_date: parsed.data.end_date,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", promoId);
+
+    if (updateErr)
+      return { success: false, error: updateErr.message };
+
+    // 4. Audit log via RPC SECURITY DEFINER
+    await supabase.rpc("log_admin_action", {
+      p_action: "update_promo",
+      p_target_type: "promotion",
+      p_target_id: promoId,
+      p_details: {
+        before: {
+          name: existing.name,
+          start_date: existing.start_date,
+          end_date: existing.end_date,
+        },
+        after: {
+          name: parsed.data.name,
+          start_date: parsed.data.start_date,
+          end_date: parsed.data.end_date,
+        },
+      },
+    });
+
+    revalidatePath("/admin/promotions");
     return { success: true };
   } catch (e: unknown) {
     return {
