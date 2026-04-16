@@ -108,7 +108,10 @@ export default async function PostDetailPage({
     commentReactionMap[r.comment_id].push(r.emoji as ReactionEmoji);
   }
 
-  // Build comments with nesting
+  // Liste plate — l'aplatissement/nesting est fait côté client dans
+  // CommentSection (useMemo avec findRoot). On évite la duplication de
+  // logique et on garantit que le Realtime INSERT (qui n'a pas accès à
+  // la structure nested) reste cohérent avec le SSR.
   const commentsFlat: ForumComment[] = (rawComments ?? []).map((c) => ({
     id: c.id,
     post_id: c.post_id,
@@ -122,59 +125,6 @@ export default async function PostDetailPage({
     user_reactions: commentReactionMap[c.id] ?? [],
     replies: [],
   }));
-
-  // Aplatissement : les réponses à n'importe quelle profondeur sont
-  // attachées au commentaire top-level ancestor (pas au parent direct).
-  // Visuellement on garde donc depth=1 max, même pour "reply sur reply".
-  // Parent_id en DB reste inchangé (pointe vers le parent direct) pour
-  // préserver la chaîne de conversation.
-  //
-  // Edge case : si un parent intermédiaire est soft-deleted (is_deleted=true),
-  // il n'apparaît pas dans `commentsFlat` → `byId.get(parent_id)` retourne
-  // undefined → on treat la reply comme orphan et on la promeut au top-level.
-  const byId = new Map(commentsFlat.map((c) => [c.id, c]));
-
-  const findRoot = (c: ForumComment): ForumComment | null => {
-    let cur: ForumComment = c;
-    const seen = new Set<string>(); // garde-fou cycle (ne devrait pas arriver)
-    while (cur.parent_id) {
-      if (seen.has(cur.id)) return null;
-      seen.add(cur.id);
-      const parent = byId.get(cur.parent_id);
-      if (!parent) return null; // parent manquant (soft-deleted ou RLS)
-      cur = parent;
-    }
-    return cur;
-  };
-
-  const topLevel: ForumComment[] = [];
-  const orphans: ForumComment[] = [];
-  const repliesByRoot = new Map<string, ForumComment[]>();
-
-  for (const c of commentsFlat) {
-    if (!c.parent_id) {
-      topLevel.push(c);
-      continue;
-    }
-    const root = findRoot(c);
-    if (!root) {
-      orphans.push(c); // parent manquant → promu top-level
-      continue;
-    }
-    if (!repliesByRoot.has(root.id)) repliesByRoot.set(root.id, []);
-    repliesByRoot.get(root.id)!.push(c);
-  }
-
-  for (const c of topLevel) {
-    c.replies = repliesByRoot.get(c.id) ?? [];
-  }
-  // Les orphans deviennent des comments top-level standalone
-  topLevel.push(...orphans);
-  // Re-tri chronologique des top-level (les orphans ont pu être insérés à la fin)
-  topLevel.sort(
-    (a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
 
   return (
     <div className="min-h-screen bg-cma-gris">
@@ -261,7 +211,7 @@ export default async function PostDetailPage({
         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
           <CommentSection
             postId={postId}
-            comments={topLevel}
+            comments={commentsFlat}
             currentUserId={user.id}
             isAdmin={isAdmin}
           />

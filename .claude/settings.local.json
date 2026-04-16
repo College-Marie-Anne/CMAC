@@ -203,7 +203,9 @@
       "Bash(grep -n \"invitation_links\\\\|invitation_link_uses\\\\|used_by\\\\|is_used\\\\|used_count\\\\|max_uses\" C:/Projets/CMAC/supabase/migrations/*.sql)",
       "Bash(xargs -I {} head -100 {})",
       "Bash(grep -n \"reaction_count\\\\|forum_reactions\" C:/Projets/CMAC/supabase/migrations/*.sql)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); lints=json.loads\\(data[0]['text']\\)['result']['lints']; from collections import Counter; c=Counter\\(l['name'] for l in lints\\); [print\\(f'{k}: {v}'\\) for k,v in c.most_common\\(\\)]\")",
+      "Bash(find C:/Projets/CMAC/src/components -name \"*.tsx\" -exec wc -l {} +)"
     ]
   }
 }
