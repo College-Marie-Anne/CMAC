@@ -104,7 +104,12 @@ export default async function OpportunitiesPage({
     .eq("tag_id", oppTag.id)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (searchQuery) postsQuery = postsQuery.textSearch("search_vector", searchQuery, { type: "websearch" });
+  // `ilike` pour supporter les préfixes / substrings (cf. commentaire dans
+  // feed/page.tsx). websearch_to_tsquery normalise les lexèmes → "Scholar"
+  // ne matcherait pas "Scholarships".
+  const safeQ = searchQuery.replace(/[%_]/g, "\\$&");
+  const searchPattern = `%${safeQ}%`;
+  if (searchQuery) postsQuery = postsQuery.ilike("content", searchPattern);
 
   let pinnedQuery = supabase
     .from("forum_posts")
@@ -118,7 +123,7 @@ export default async function OpportunitiesPage({
     .eq("is_pinned", true)
     .eq("tag_id", oppTag.id)
     .order("created_at", { ascending: false });
-  if (searchQuery) pinnedQuery = pinnedQuery.textSearch("search_vector", searchQuery, { type: "websearch" });
+  if (searchQuery) pinnedQuery = pinnedQuery.ilike("content", searchPattern);
 
   const [
     { data: rawPosts },

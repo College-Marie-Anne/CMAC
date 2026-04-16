@@ -1,32 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 export function FeedSearch() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentQuery = searchParams.get("q") ?? "";
   const [value, setValue] = useState(currentQuery);
 
-  const handleSearch = () => {
+  // Resync l'input si l'URL change (retour arrière, clear via autre tab, etc.)
+  useEffect(() => {
+    setValue(currentQuery);
+  }, [currentQuery]);
+
+  // Base path = pathname courant. Avant, on forçait `/feed` : depuis
+  // `/opportunities` la barre redirigait vers /feed, cassant la navigation.
+  // On garde la route courante et on ne pousse que les searchParams.
+  const buildUrl = (nextQ: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value.trim()) {
-      params.set("q", value.trim());
-    } else {
-      params.delete("q");
-    }
+    if (nextQ.trim()) params.set("q", nextQ.trim());
+    else params.delete("q");
     const qs = params.toString();
-    router.push(qs ? `/feed?${qs}` : "/feed");
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
+  const handleSearch = () => {
+    router.push(buildUrl(value));
   };
 
   const handleClear = () => {
     setValue("");
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("q");
-    const qs = params.toString();
-    router.push(qs ? `/feed?${qs}` : "/feed");
+    router.push(buildUrl(""));
   };
 
   return (

@@ -101,7 +101,15 @@ export default async function FeedPage({
     .order("created_at", { ascending: false })
     .limit(20);
   if (systemTagIds.length > 0) postsQuery = postsQuery.not("tag_id", "in", `(${systemTagIds.join(",")})`);
-  if (searchQuery) postsQuery = postsQuery.textSearch("search_vector", searchQuery, { type: "websearch" });
+  // Recherche : `ilike` plutôt que `textSearch websearch` pour supporter
+  // les préfixes et substrings. Le full-text (to_tsvector) normalise les
+  // lexèmes → "Scholar" ne matche pas "Scholarships", "Édu" ne matche pas
+  // "Éducation", etc. Ilike fait un substring case-insensitive sur content
+  // (seul champ indexé dans le search_vector de forum_posts), ce qui couvre
+  // les cas de recherche progressive pendant la frappe.
+  const safeQ = searchQuery.replace(/[%_]/g, "\\$&");
+  const searchPattern = `%${safeQ}%`;
+  if (searchQuery) postsQuery = postsQuery.ilike("content", searchPattern);
 
   let pinnedQuery = supabase
     .from("forum_posts")
@@ -115,7 +123,7 @@ export default async function FeedPage({
     .eq("is_pinned", true)
     .order("created_at", { ascending: false });
   if (systemTagIds.length > 0) pinnedQuery = pinnedQuery.not("tag_id", "in", `(${systemTagIds.join(",")})`);
-  if (searchQuery) pinnedQuery = pinnedQuery.textSearch("search_vector", searchQuery, { type: "websearch" });
+  if (searchQuery) pinnedQuery = pinnedQuery.ilike("content", searchPattern);
 
   const [
     { data: rawPosts },
