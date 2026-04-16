@@ -8,7 +8,10 @@ import { EducationSection } from "@/components/profile/education-section";
 import { ProfessionsSection } from "@/components/profile/professions-section";
 import { ActivitiesSection } from "@/components/profile/activities-section";
 import { DesiredFieldsSection } from "@/components/profile/desired-fields-section";
-import { InvitationGenerator } from "@/components/profile/invitation-generator";
+import {
+  InvitationGenerator,
+  type InvitationLinkItem,
+} from "@/components/profile/invitation-generator";
 import { ProfileBadges } from "@/components/profile/profile-badges";
 
 export default async function ProfileEditPage() {
@@ -33,6 +36,8 @@ export default async function ProfileEditPage() {
 
   const isStudent = profile.role === "student" || profile.role === "s4";
 
+  const isAlumni = profile.role === "alumni";
+
   const [
     { data: education },
     { data: professions },
@@ -40,6 +45,7 @@ export default async function ProfileEditPage() {
     { data: allActivities },
     { data: profileActivities },
     { data: desiredFields },
+    { data: rawInvitations },
   ] = await Promise.all([
     supabase.from("user_education").select("id, institution_type, institution_name, study_field, degree_level, start_year, end_year").eq("profile_id", user.id).order("start_year", { ascending: false }),
     supabase.from("user_professions").select("id, title, company, is_current").eq("profile_id", user.id).order("is_current", { ascending: false }),
@@ -49,10 +55,59 @@ export default async function ProfileEditPage() {
     isStudent
       ? supabase.from("desired_study_fields").select("field_name").eq("profile_id", user.id).order("created_at", { ascending: true })
       : Promise.resolve({ data: [] as { field_name: string }[] }),
+    // Invitations : seulement pour alumni (RLS bloque les autres rôles à la
+    // création, donc inutile de fetch). On fetch les 30 plus récentes.
+    isAlumni
+      ? supabase
+          .from("invitation_links")
+          .select("id, token, expires_at, is_used, is_revoked, created_at, used_by")
+          .eq("inviter_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(30)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            token: string;
+            expires_at: string;
+            is_used: boolean;
+            is_revoked: boolean;
+            created_at: string;
+            used_by: string | null;
+          }>,
+        }),
   ]);
 
   const selectedActivityIds = (profileActivities ?? []).map((r) => r.activity_id);
   const desiredFieldNames = (desiredFields ?? []).map((r) => r.field_name);
+
+  // Résolution des noms used_by (un seul SELECT batch sur les profils invités).
+  let invitations: InvitationLinkItem[] = [];
+  if (isAlumni && rawInvitations && rawInvitations.length > 0) {
+    const usedByIds = rawInvitations
+      .map((l) => l.used_by)
+      .filter((id): id is string => Boolean(id));
+
+    const nameById = new Map<string, string>();
+    if (usedByIds.length > 0) {
+      const { data: invitedProfiles } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", usedByIds);
+      for (const p of invitedProfiles ?? []) {
+        nameById.set(p.id, `${p.first_name} ${p.last_name}`.trim());
+      }
+    }
+
+    invitations = rawInvitations.map((l) => ({
+      id: l.id,
+      token: l.token,
+      expires_at: l.expires_at,
+      is_used: l.is_used,
+      is_revoked: l.is_revoked,
+      created_at: l.created_at,
+      used_by_name: l.used_by ? nameById.get(l.used_by) ?? null : null,
+    }));
+  }
 
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950">
@@ -133,9 +188,9 @@ export default async function ProfileEditPage() {
         </div>
 
         {/* Invitation links (alumni only) */}
-        {profile.role === "alumni" && (
+        {isAlumni && (
           <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
-            <InvitationGenerator />
+            <InvitationGenerator invitations={invitations} />
           </div>
         )}
 

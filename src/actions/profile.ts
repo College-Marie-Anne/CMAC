@@ -332,13 +332,50 @@ export async function generateInvitationLinkAction(): Promise<ProfileActionResul
         inviter_id: user.id,
         expires_at: expiresAt.toISOString(),
       })
-      .select("token, expires_at")
+      .select("id, token, expires_at")
       .single();
 
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/profile/edit");
     return { success: true, data: link };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Révoque un lien d'invitation appartenant à l'utilisatrice.
+ *
+ * RLS (migration 026) :
+ *   - USING (inviter_id = auth.uid()) garantit qu'on ne peut révoquer que SES
+ *     liens.
+ *   - WITH CHECK (is_revoked = true) garantit qu'on ne peut PAS un-revoke.
+ *
+ * On filtre aussi côté action pour éviter les appels inutiles sur des liens
+ * déjà utilisés ou déjà révoqués.
+ */
+export async function revokeInvitationLinkAction(
+  linkId: string
+): Promise<ProfileActionResult> {
+  try {
+    const { supabase, user, profile } = await requireAuth();
+
+    if (profile.role !== "alumni")
+      return { success: false, error: "Seules les alumni peuvent révoquer leurs liens" };
+
+    const { error } = await supabase
+      .from("invitation_links")
+      .update({ is_revoked: true })
+      .eq("id", linkId)
+      .eq("inviter_id", user.id)
+      .eq("is_used", false)
+      .eq("is_revoked", false);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/profile/edit");
+    return { success: true };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
   }
