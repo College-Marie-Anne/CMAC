@@ -147,16 +147,20 @@ export function PostFeed({
         </p>
       </div>
 
-      {/* Create post bar */}
+      {/* Create post bar — refondu pour ne plus ressembler à une seconde
+          barre de recherche (le précédent design avec icône ronde à gauche
+          + texte gris était visuellement confondu avec FeedSearch du header). */}
       <button
         type="button"
         onClick={() => setCreateOpen(true)}
-        className="w-full mb-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center gap-3 text-left hover:shadow-md transition-shadow"
+        className="w-full mb-4 p-3.5 rounded-2xl flex items-center justify-center gap-2 font-medium text-white shadow-sm transition-all active:scale-[0.98]"
+        style={{
+          background:
+            "linear-gradient(135deg, #800020 0%, #5c0018 100%)",
+        }}
       >
-        <div className="w-10 h-10 rounded-full bg-cma-bordeaux/10 flex items-center justify-center text-cma-bordeaux">
-          <Plus size={18} />
-        </div>
-        <span className="text-sm text-gray-400">{createLabel}</span>
+        <Plus size={18} strokeWidth={2.5} />
+        <span className="text-sm">{createLabel}</span>
       </button>
 
       {/* Tag filter */}

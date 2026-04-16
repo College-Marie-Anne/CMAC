@@ -4,6 +4,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { PostFeed } from "@/components/feed/post-feed";
 import { MobileCreateButton } from "@/components/feed/mobile-create-button";
 import { MobileProfileMenu } from "@/components/feed/mobile-profile-menu";
+import { MobileQuickLinks } from "@/components/feed/mobile-quick-links";
 import { FeedSearch } from "@/components/feed/feed-search";
 import { NotificationsBellBadge } from "@/components/notifications/notifications-bell-badge";
 import Link from "next/link";
@@ -263,6 +264,7 @@ export default async function FeedPage({
 
         {/* Main content */}
         <main className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
+          <MobileQuickLinks />
           <PostFeed
             initialPosts={posts}
             initialHasMore={(rawPosts?.length ?? 0) === 20}
