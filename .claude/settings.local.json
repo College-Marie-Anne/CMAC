@@ -145,7 +145,12 @@
       "Bash(grep -nB 1 -A 6 \"SelectContent\" src/components/auth/register-form.tsx)",
       "Bash(grep -A 30 \"SelectContentProps\" node_modules/@radix-ui/react-select/dist/*.d.ts)",
       "Bash(grep -A 30 \"interface SelectProps\" node_modules/@radix-ui/react-select/dist/*.d.ts)",
-      "Bash(grep -A 10 \"SelectRoot\\\\|interface SelectProps\\\\|interface Select \" node_modules/@radix-ui/react-select/dist/*.d.ts)"
+      "Bash(grep -A 10 \"SelectRoot\\\\|interface SelectProps\\\\|interface Select \" node_modules/@radix-ui/react-select/dist/*.d.ts)",
+      "Bash(ls -la C:/Projets/CMAC/public/*.png C:/Projets/CMAC/public/CMAC.jpeg)",
+      "Bash(grep -l -i \"preload\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/**/*.md)",
+      "Bash(grep -l -i \"ReactDOM.preload\\\\|rel=\\\\\"preload\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/**/*.md C:/Projets/CMAC/node_modules/next/dist/docs/01-app/*.md)",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__execute_sql",
+      "mcp__88666a83-7d43-4763-85d3-a8860a918e79__get_logs"
     ]
   }
 }

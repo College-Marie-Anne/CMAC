@@ -14,6 +14,22 @@ export type RegisterResult = {
   error?: string;
 };
 
+/**
+ * Reconstruit l'origine de la requête (ex: https://cmaconnect.app).
+ * Priorité : NEXT_PUBLIC_SITE_URL env var > x-forwarded-* headers > host header.
+ * Utilisé pour `emailRedirectTo` de signUp → le lien dans l'email pointera
+ * vers notre domaine réel (pas celui du projet Supabase).
+ */
+function resolveOrigin(h: Headers): string {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const host =
+    h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
+}
+
 export async function registerAction(
   data: RegisterFormData,
   invitationToken?: string
@@ -30,16 +46,21 @@ export async function registerAction(
     };
   }
 
+  const origin = resolveOrigin(h);
   const supabase = await createClient();
+  // Admin client obligatoire pour les INSERTs ci-dessous : après signUp avec
+  // confirmation email activée, l'utilisatrice N'EST PAS authentifiée (pas de
+  // session tant que l'email n'est pas confirmé). Les policies RLS
+  // `auth.uid() = id` échoueraient avec le client normal.
+  const admin = createAdminClient();
+
   const { step1, step2_type, step2_alumni, step2_s4, step2_student, step3 } =
     data;
 
   // ─── 0. Validation token d'invitation (si fourni) ───
   //
   // Avec un token valide, le compte est pré-approuvé → status: 'active'
-  // au lieu de 'pending' (spec §134). La validation est re-faite ici
-  // côté serveur (la page d'invitation la fait aussi, mais un attaquant
-  // pourrait poster directement sans passer par la page).
+  // au lieu de 'pending' (spec §134).
 
   let inviteValid = false;
   if (invitationToken) {
@@ -75,7 +96,7 @@ export async function registerAction(
 
   // ─── 1. Vérifier unicité username ───
 
-  const { data: existingUser } = await supabase
+  const { data: existingUser } = await admin
     .from("profiles")
     .select("id")
     .eq("username", step3.username)
@@ -91,8 +112,8 @@ export async function registerAction(
 
   if (step2_type === "alumni" && step2_alumni) {
     if (step2_alumni.is_new_promo) {
-      // Créer une promo pending
-      const { data: newPromo, error: promoError } = await supabase
+      // Créer une promo pending (admin client car user pas encore authentifié)
+      const { data: newPromo, error: promoError } = await admin
         .from("promotions")
         .insert({
           name: step2_alumni.promotion_name,
@@ -104,6 +125,7 @@ export async function registerAction(
         .single();
 
       if (promoError) {
+        console.error("[register] promotion insert failed:", promoError);
         return {
           success: false,
           error: "Erreur lors de la création de la promotion",
@@ -111,8 +133,7 @@ export async function registerAction(
       }
       promoId = newPromo.id;
     } else {
-      // Promo existante
-      const { data: promo } = await supabase
+      const { data: promo } = await admin
         .from("promotions")
         .select("id")
         .eq("name", step2_alumni.promotion_name)
@@ -120,7 +141,7 @@ export async function registerAction(
       promoId = promo?.id ?? null;
     }
   } else if (step2_type === "s4" && step2_s4) {
-    const { data: promo } = await supabase
+    const { data: promo } = await admin
       .from("promotions")
       .select("id")
       .eq("name", step2_s4.promotion_name)
@@ -129,16 +150,30 @@ export async function registerAction(
   }
 
   // ─── 3. Créer le compte Supabase Auth ───
+  //
+  // `emailRedirectTo` est indispensable : sans lui, Supabase utilise le Site URL
+  // du projet, qui peut pointer vers un mauvais domaine. On force la redirection
+  // vers notre callback PKCE qui échange le code contre une session puis redirige
+  // vers /login?verified=1.
+
+  // `next` doit être URL-encoded : sans ça, "?verified=1" serait parsé comme un
+  // param top-level séparé par le callback et la query serait perdue.
+  const nextPath = inviteValid ? "/login?invited=1" : "/login?verified=1";
+  const emailRedirect = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: step3.email,
     password: step3.password,
+    options: {
+      emailRedirectTo: emailRedirect,
+    },
   });
 
   if (authError || !authData.user) {
     if (authError?.message?.includes("already registered")) {
       return { success: false, error: "Cet email est déjà utilisé" };
     }
+    console.error("[register] signUp failed:", authError);
     return { success: false, error: "Erreur lors de la création du compte" };
   }
 
@@ -160,8 +195,9 @@ export async function registerAction(
     const currentYear = new Date().getFullYear();
     const enrollment = step2_student.enrollment_date;
 
-    // Bounds check : enrollment doit être réaliste (1980 → année courante + 1)
     if (enrollment < 1980 || enrollment > currentYear + 1) {
+      // Cleanup : user créé mais données invalides
+      await admin.auth.admin.deleteUser(userId);
       return { success: false, error: "Année d'entrée au collège invalide" };
     }
 
@@ -174,9 +210,9 @@ export async function registerAction(
     expectedEndDate = enrollment + yearsToAdd;
   }
 
-  // ─── 6. Créer le profil ───
+  // ─── 6. Créer le profil (admin client → bypass RLS) ───
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await admin.from("profiles").insert({
     id: userId,
     username: step3.username,
     first_name: step1.first_name,
@@ -210,14 +246,14 @@ export async function registerAction(
   });
 
   if (profileError) {
-    // Cleanup : supprimer le user Auth orphelin si le profil échoue en utilisant l'admin client
+    // Cleanup auth user orphelin → le token email devient invalide mais l'UX
+    // affiche "inscription a échoué", cohérent avec l'état réel.
+    console.error(
+      `[register] Profil INSERT échoué pour auth user ${userId}. Erreur:`,
+      profileError
+    );
     try {
-      const adminClient = createAdminClient();
-      await adminClient.auth.admin.deleteUser(userId);
-      console.error(
-        `[register] Profil INSERT échoué pour auth user ${userId}. ` +
-        `User Auth supprimé via adminClient. Erreur: ${profileError.message}`
-      );
+      await admin.auth.admin.deleteUser(userId);
     } catch (cleanupErr) {
       console.error(
         `[register] Échec suppression admin pour auth user ${userId}:`,
@@ -227,7 +263,7 @@ export async function registerAction(
     return { success: false, error: "Erreur lors de la création du profil" };
   }
 
-  // ─── 7. Insérer les données liées ───
+  // ─── 7. Insérer les données liées (admin client) ───
 
   const insertErrors: string[] = [];
 
@@ -240,18 +276,21 @@ export async function registerAction(
         : step2_student?.activities;
 
   if (activities && activities.length > 0) {
-    const { error } = await supabase.from("profile_activities").insert(
+    const { error } = await admin.from("profile_activities").insert(
       activities.map((activityId) => ({
         profile_id: userId,
         activity_id: activityId,
       }))
     );
-    if (error) insertErrors.push("activités parascolaires");
+    if (error) {
+      console.error("[register] profile_activities insert failed:", error);
+      insertErrors.push("activités parascolaires");
+    }
   }
 
   // Parcours académique (alumni uniquement)
   if (step2_type === "alumni" && step2_alumni) {
-    const { error: eduError } = await supabase.from("user_education").insert({
+    const { error: eduError } = await admin.from("user_education").insert({
       profile_id: userId,
       institution_type: step2_alumni.institution_type,
       institution_name: step2_alumni.institution_name,
@@ -260,10 +299,13 @@ export async function registerAction(
       start_year: step2_alumni.start_year || null,
       end_year: step2_alumni.end_year || null,
     });
-    if (eduError) insertErrors.push("parcours académique");
+    if (eduError) {
+      console.error("[register] user_education insert failed:", eduError);
+      insertErrors.push("parcours académique");
+    }
 
     // Métier actuel
-    const { error: jobError } = await supabase
+    const { error: jobError } = await admin
       .from("user_professions")
       .insert({
         profile_id: userId,
@@ -271,7 +313,10 @@ export async function registerAction(
         company: step2_alumni.job_company || null,
         is_current: true,
       });
-    if (jobError) insertErrors.push("métier actuel");
+    if (jobError) {
+      console.error("[register] user_professions insert failed:", jobError);
+      insertErrors.push("métier actuel");
+    }
   }
 
   // Domaines d'études désirés (S4 et S1-S3)
@@ -283,43 +328,38 @@ export async function registerAction(
         : null;
 
   if (desiredFields && desiredFields.length > 0) {
-    const { error } = await supabase.from("desired_study_fields").insert(
+    const { error } = await admin.from("desired_study_fields").insert(
       desiredFields.map((field) => ({
         profile_id: userId,
         field_name: field,
       }))
     );
-    if (error) insertErrors.push("domaines d'études");
+    if (error) {
+      console.error("[register] desired_study_fields insert failed:", error);
+      insertErrors.push("domaines d'études");
+    }
   }
 
   // Si des INSERT secondaires ont échoué :
   // 1. Marquer le profil comme incomplet (visible dans le dashboard admin)
   // 2. Logger l'erreur pour investigation
-  // Le profil est créé, l'admin voit le flag et peut compléter les données
   if (insertErrors.length > 0) {
     console.error(
       `[register] Données partielles pour ${userId}: échec INSERT ${insertErrors.join(", ")}`
     );
 
-    await supabase
+    await admin
       .from("profiles")
       .update({ registration_incomplete: true })
       .eq("id", userId);
 
-    // Note : on ne bloque PAS l'inscription. Le profil existe,
-    // les données manquantes seront ajoutées par l'admin ou l'utilisatrice.
-    // Le flag registration_incomplete est visible dans /admin/users/[id].
+    // Note : on ne bloque PAS l'inscription. Le profil existe.
   }
 
   // ─── 8. Consommer le token d'invitation (si flow d'invitation) ───
-  //
-  // Atomique : la RPC verrouille la row, re-vérifie la validité, marque
-  // is_used + used_by, et crée la notification 'invitation_used' pour
-  // l'inviteur. Ne bloque PAS l'inscription si elle échoue (l'utilisatrice
-  // est déjà créée avec status 'active') — on log et on continue.
 
   if (inviteValid && invitationToken) {
-    const { data: consumed, error: consumeErr } = await supabase.rpc(
+    const { data: consumed, error: consumeErr } = await admin.rpc(
       "consume_invitation_token",
       { p_token: invitationToken, p_user_id: userId }
     );
@@ -328,7 +368,7 @@ export async function registerAction(
         `[register] consume_invitation_token failed for ${userId}:`,
         consumeErr ?? "returned false (token race/invalid)"
       );
-      // On n'échoue pas l'inscription — admin peut réparer manuellement.
+      // On n'échoue pas l'inscription.
     }
   }
 
@@ -339,15 +379,13 @@ export async function registerAction(
     firstName: step1.first_name,
   });
 
-  // ─── 10. Déconnexion (même pour les comptes invités — confirmation email requise) ───
+  // ─── 10. Déconnexion (sécurité — pas de session locale après signUp) ───
 
   await supabase.auth.signOut();
 
   // ─── 11. Redirection selon le flow ───
 
   if (inviteValid) {
-    // Compte déjà 'active' — l'utilisatrice peut se connecter immédiatement
-    // (après vérification email si Supabase Auth l'exige)
     revalidatePath("/admin/invitations");
     redirect("/login?invited=1");
   }
