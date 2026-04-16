@@ -9,6 +9,7 @@ import { after } from "next/server";
 import type { RegisterFormData } from "@/lib/validations/register";
 import { registerLimiter, checkRateLimit, sanitizeIp } from "@/lib/rate-limit";
 import { sendWelcomeEmail } from "@/lib/emails/welcome";
+import { sendAdminPendingRegistrationEmail } from "@/lib/emails/admin-pending-registration";
 import { env } from "@/lib/env";
 
 export type RegisterResult = {
@@ -380,6 +381,75 @@ export async function registerAction(
         to: step3.email,
         firstName: step1.first_name,
       });
+    });
+
+    // Notification email aux admins : quelqu'un est en attente d'approbation.
+    // Skip pour les invited (pas d'attente, le compte est déjà 'active').
+    after(async () => {
+      try {
+        // Liste des admins actifs depuis la table profiles (admin client →
+        // bypass RLS car la nouvelle inscrite n'a pas de session)
+        const { data: admins, error: adminsErr } = await admin
+          .from("profiles")
+          .select("id, first_name")
+          .eq("role", "admin")
+          .eq("status", "active");
+
+        if (adminsErr || !admins || admins.length === 0) {
+          if (adminsErr) {
+            console.error(
+              "[register] fetch admins for pending notif failed:",
+              adminsErr
+            );
+          }
+          return;
+        }
+
+        // Récupère email + first_name pour chaque admin (auth.users via admin
+        // client). Promotion → on a déjà step2_alumni / step2_s4 / null.
+        const promotion =
+          step2_type === "alumni"
+            ? step2_alumni?.promotion_name ?? null
+            : step2_type === "s4"
+              ? step2_s4?.promotion_name ?? null
+              : null;
+
+        const role =
+          step2_type === "alumni"
+            ? "alumni"
+            : step2_type === "s4"
+              ? "s4"
+              : "student";
+
+        const emailJobs = await Promise.all(
+          admins.map(async (a) => {
+            const { data: authRes } = await admin.auth.admin.getUserById(a.id);
+            return {
+              email: authRes?.user?.email ?? null,
+              firstName: a.first_name ?? null,
+            };
+          })
+        );
+
+        await Promise.all(
+          emailJobs.map(({ email, firstName }) => {
+            if (!email) return Promise.resolve();
+            return sendAdminPendingRegistrationEmail({
+              to: email,
+              adminFirstName: firstName,
+              newUser: {
+                firstName: step1.first_name,
+                lastName: step1.last_name,
+                email: step3.email,
+                role: role as "alumni" | "s4" | "student",
+                promotion,
+              },
+            });
+          })
+        );
+      } catch (err) {
+        console.error("[register] envoi email admins pending failed:", err);
+      }
     });
   }
 
