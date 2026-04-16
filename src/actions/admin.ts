@@ -16,6 +16,7 @@ import {
 import { tagSchema } from "@/lib/validations/forum";
 import { sendAccountApprovedEmail } from "@/lib/emails/account-approved";
 import { dispatchPush } from "@/lib/push";
+import { normalizeCountry, normalizeNationalities } from "@/lib/normalize-country";
 
 export type AdminActionResult = {
   success: boolean;
@@ -1009,6 +1010,17 @@ export async function updateProfileAction(
           ? `Champs non autorisés : ${rejected.join(", ")}`
           : "Aucun champ à modifier",
       };
+
+    // Normalisation pays/nationalité — "Haiti"/"Haïti"/"HAITIENNE" sont
+    // canonicalisés pour éviter les doublons dans l'annuaire et le dashboard.
+    if ("country" in sanitized && typeof sanitized.country === "string") {
+      sanitized.country = normalizeCountry(sanitized.country);
+    }
+    if ("nationality" in sanitized && Array.isArray(sanitized.nationality)) {
+      sanitized.nationality = normalizeNationalities(
+        sanitized.nationality as string[]
+      );
+    }
 
     const { error } = await supabase
       .from("profiles")

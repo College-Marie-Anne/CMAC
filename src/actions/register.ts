@@ -11,6 +11,7 @@ import { registerLimiter, checkRateLimit, sanitizeIp } from "@/lib/rate-limit";
 import { sendWelcomeEmail } from "@/lib/emails/welcome";
 import { sendAdminPendingRegistrationEmail } from "@/lib/emails/admin-pending-registration";
 import { env } from "@/lib/env";
+import { normalizeCountry, normalizeNationalities } from "@/lib/normalize-country";
 
 export type RegisterResult = {
   success: boolean;
@@ -214,14 +215,19 @@ export async function registerAction(
 
   // ─── 6. Créer le profil (admin client → bypass RLS) ───
 
+  // Normalisation pays/nationalité : évite les doublons "Haiti"/"Haïti",
+  // "Haitienne"/"HAÏTIENNE", etc. Voir [src/lib/normalize-country.ts].
+  const normalizedCountry = normalizeCountry(step1.country);
+  const normalizedNationality = normalizeNationalities(step1.nationality);
+
   const { error: profileError } = await admin.from("profiles").insert({
     id: userId,
     username: step3.username,
     first_name: step1.first_name,
     last_name: step1.last_name,
     date_of_birth: step1.date_of_birth,
-    nationality: step1.nationality,
-    country: step1.country,
+    nationality: normalizedNationality,
+    country: normalizedCountry,
     role,
     class: step2_type === "student" ? step2_student?.class : null,
     filiere:
