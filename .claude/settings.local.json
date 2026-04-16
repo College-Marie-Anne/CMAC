@@ -200,7 +200,8 @@
       "Bash(grep -l \"invitation_token\\\\|DROP FUNCTION.*invitation\" C:/Projets/CMAC/supabase/migrations/*.sql)",
       "Bash(curl -s \"http://localhost:3000/register/invite/0fed5637-a09e-418a-8896-49d7b8ef5d1e\")",
       "Bash(grep -n \"send_direct_message\\\\|create_conversation\" C:/Projets/CMAC/supabase/migrations/*.sql)",
-      "Bash(grep -n \"invitation_links\\\\|invitation_link_uses\\\\|used_by\\\\|is_used\\\\|used_count\\\\|max_uses\" C:/Projets/CMAC/supabase/migrations/*.sql)"
+      "Bash(grep -n \"invitation_links\\\\|invitation_link_uses\\\\|used_by\\\\|is_used\\\\|used_count\\\\|max_uses\" C:/Projets/CMAC/supabase/migrations/*.sql)",
+      "Bash(xargs -I {} head -100 {})"
     ]
   }
 }
