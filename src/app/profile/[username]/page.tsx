@@ -5,6 +5,10 @@ import { ArrowLeft, MapPin, Globe, Calendar, MessageSquare, FileText } from "luc
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { ProfileBadges } from "@/components/profile/profile-badges";
 import { ProfileModerationActions } from "@/components/moderation/profile-moderation-actions";
+import {
+  InvitationGenerator,
+  type InvitationLinkItem,
+} from "@/components/profile/invitation-generator";
 import { timeAgo } from "@/lib/time-ago";
 
 export default async function ProfilePage({
@@ -33,6 +37,7 @@ export default async function ProfilePage({
   if (profileErr || !profile) notFound();
 
   const isOwnProfile = profile.id === user.id;
+  const isOwnAlumniProfile = isOwnProfile && profile.role === "alumni";
 
   // Fetch related data in parallel
   const [
@@ -45,6 +50,7 @@ export default async function ProfilePage({
     { count: commentCount },
     { data: blockRow },
     { data: viewerProfile },
+    { data: rawInvitations },
   ] = await Promise.all([
     supabase.from("user_education").select("id, institution_type, institution_name, study_field, degree_level, start_year, end_year").eq("profile_id", profile.id).order("start_year", { ascending: false }),
     supabase.from("user_professions").select("id, title, company, is_current").eq("profile_id", profile.id).order("is_current", { ascending: false }),
@@ -62,12 +68,62 @@ export default async function ProfilePage({
           .eq("blocked_id", profile.id)
           .maybeSingle(),
     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    // Invitations : seulement pour son propre profil alumni. La RLS
+    // `invitation_links_select` filtrerait déjà, mais on skip la query
+    // pour les autres cas pour économiser un round-trip.
+    isOwnAlumniProfile
+      ? supabase
+          .from("invitation_links")
+          .select("id, token, expires_at, is_used, is_revoked, created_at, used_by")
+          .eq("inviter_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(30)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            token: string;
+            expires_at: string;
+            is_used: boolean;
+            is_revoked: boolean;
+            created_at: string;
+            used_by: string | null;
+          }>,
+        }),
   ]);
 
   const isAlreadyBlocked = !!blockRow;
   // Les admins ne peuvent pas bloquer/signaler depuis l'UI utilisatrice
   // (ils ont le dashboard /admin/moderation pour ça)
   const viewerIsAdmin = viewerProfile?.role === "admin";
+
+  // Résolution des noms used_by (batch SELECT sur les profils invités).
+  let invitations: InvitationLinkItem[] = [];
+  if (isOwnAlumniProfile && rawInvitations && rawInvitations.length > 0) {
+    const usedByIds = rawInvitations
+      .map((l) => l.used_by)
+      .filter((id): id is string => Boolean(id));
+
+    const nameById = new Map<string, string>();
+    if (usedByIds.length > 0) {
+      const { data: invitedProfiles } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", usedByIds);
+      for (const p of invitedProfiles ?? []) {
+        nameById.set(p.id, `${p.first_name} ${p.last_name}`.trim());
+      }
+    }
+
+    invitations = rawInvitations.map((l) => ({
+      id: l.id,
+      token: l.token,
+      expires_at: l.expires_at,
+      is_used: l.is_used,
+      is_revoked: l.is_revoked,
+      created_at: l.created_at,
+      used_by_name: l.used_by ? nameById.get(l.used_by) ?? null : null,
+    }));
+  }
 
   return (
     <div className="min-h-screen bg-cma-gris dark:bg-gray-950">
@@ -211,6 +267,15 @@ export default async function ProfilePage({
           <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Filière au CMA</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">{profile.filiere}</p>
+          </div>
+        )}
+
+        {/* Liens d'invitation — visible UNIQUEMENT sur son propre profil alumni.
+            Les autres roles (s4, student, admin) ou les visiteuses d'un autre
+            profil ne voient pas cette section. */}
+        {isOwnAlumniProfile && (
+          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+            <InvitationGenerator invitations={invitations} />
           </div>
         )}
       </main>
