@@ -127,7 +127,19 @@
       "Bash(find src/app -name \"loading.tsx\" -type f ! -path \"src/app/loading.tsx\" -delete)",
       "Bash(npm ls:*)",
       "Bash(grep -B 2 -A 20 \"swSrc\\\\|swDest\\\\|swUrl\" node_modules/@serwist/build/dist/*.d.ts)",
-      "WebFetch(domain:serwist.pages.dev)"
+      "WebFetch(domain:serwist.pages.dev)",
+      "Bash(tee /tmp/tsc.log)",
+      "Bash(grep -l \"offline\" src/app/*/page.tsx src/components/**/*.tsx)",
+      "Bash(tee /tmp/build.log)",
+      "Bash(grep -h \"ENABLE ROW LEVEL SECURITY\" supabase/migrations/*.sql)",
+      "Bash(grep -h \"CREATE TABLE\" supabase/migrations/*.sql)",
+      "Bash(grep -h \"CREATE TYPE\" supabase/migrations/*.sql)",
+      "Bash(ls -la *.md)",
+      "Bash(grep -r \"CREATE TRIGGER\" supabase/migrations/*.sql)",
+      "Bash(grep -r \"notify_user\\\\|notify_promo_members\\\\|INSERT INTO notifications\" supabase/migrations/*.sql)",
+      "Bash(grep -r \"notification_type.*=\" supabase/migrations/*.sql)",
+      "Bash(grep \"notify_promo_members\\\\|PERFORM notify_user\" supabase/migrations/*.sql)",
+      "Bash(grep -A 20 \"TYPE notification_type\" supabase/migrations/*.sql)"
     ]
   }
 }
