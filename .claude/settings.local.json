@@ -168,7 +168,8 @@
       "mcp__88666a83-7d43-4763-85d3-a8860a918e79__apply_migration",
       "Bash(grep -rn \"export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/dist/esm/server/*.d.ts)",
       "Bash(grep -l \"^export.*\\\\\"after\\\\\"\\\\|^export.*after\\\\b\" C:/Projets/CMAC/node_modules/next/*.d.ts)",
-      "Bash(grep -rn \"\\\\\"after\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after*)"
+      "Bash(grep -rn \"\\\\\"after\\\\\"\" C:/Projets/CMAC/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after*)",
+      "Bash(grep -rn \"defaultCache\" C:/Projets/CMAC/node_modules/@serwist/turbopack/dist/*.mjs)"
     ]
   }
 }

@@ -5,6 +5,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { SerwistProvider } from "./serwist-provider";
+import { PwaUpdateReloader } from "@/components/pwa/pwa-update-reloader";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -59,8 +60,21 @@ export default function RootLayout({
         />
         {/* scope: "/" — le SW contrôle tout le site (requis pour que Chrome
             affiche l'install prompt). @serwist/turbopack renvoie l'en-tête
-            Service-Worker-Allowed: / côté serveur qui autorise ce scope. */}
-        <SerwistProvider swUrl="/serwist/sw.js" options={{ scope: "/" }}>
+            Service-Worker-Allowed: / côté serveur qui autorise ce scope.
+
+            reloadOnOnline=true : reload auto quand la connexion revient
+            (utile pour les PWA Android qui hibernent).
+
+            <PwaUpdateReloader /> : reload auto quand un nouveau SW prend le
+            contrôle, + force un update check à chaque visibilitychange.
+            Sans ça, l'utilisatrice devait désinstaller/réinstaller la PWA
+            pour voir les updates. */}
+        <SerwistProvider
+          swUrl="/serwist/sw.js"
+          options={{ scope: "/" }}
+          reloadOnOnline
+        >
+          <PwaUpdateReloader />
           {children}
         </SerwistProvider>
         <OfflineBanner />

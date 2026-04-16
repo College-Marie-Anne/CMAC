@@ -3,12 +3,18 @@
 import { useState, useTransition, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { X, ImagePlus, Loader2, Send } from "lucide-react";
+import { X, ImagePlus, Loader2, Send, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { createPostAction } from "@/actions/forum";
 import { uploadForumImage } from "@/lib/upload-forum-image";
 import { createClient } from "@/utils/supabase/client";
+import { cn } from "@/lib/utils";
 import type { ForumTag } from "@/lib/types/forum";
 
 interface CreatePostDialogProps {
@@ -22,11 +28,14 @@ interface CreatePostDialogProps {
 export function CreatePostDialog({ tags, open, onClose, userId, promoId }: CreatePostDialogProps) {
   const [content, setContent] = useState("");
   const [tagId, setTagId] = useState(() => tags.length === 1 ? tags[0].id : "");
+  const [tagOpen, setTagOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const selectedTag = tags.find((t) => t.id === tagId) ?? null;
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -125,10 +134,14 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
                 </div>
               )}
 
-              {/* Tag selector */}
+              {/* Tag selector — Popover custom plutôt que <select> natif :
+                  le picker natif Android hérite du dark mode système et
+                  rend le texte invisible (texte gris sombre sur fond sombre).
+                  Le Popover nous donne un contrôle total + affichage des
+                  couleurs de tag dans la liste. */}
               {tags.length === 1 ? (
                 <div className="flex items-center">
-                  <span 
+                  <span
                     className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium"
                     style={{ background: `${tags[0].color}15`, color: tags[0].color }}
                   >
@@ -136,19 +149,66 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
                   </span>
                 </div>
               ) : (
-                <select
-                  value={tagId}
-                  onChange={(e) => setTagId(e.target.value)}
-                  className="w-full h-9 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-cma-bordeaux"
-                  disabled={isPending}
-                >
-                  <option value="">Choisir un tag *</option>
-                  {tags.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                <Popover open={tagOpen} onOpenChange={setTagOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      className={cn(
+                        "w-full h-10 px-3 rounded-xl border text-sm flex items-center justify-between bg-white text-left disabled:opacity-50",
+                        tagId
+                          ? "border-gray-200"
+                          : "border-gray-200 text-gray-400"
+                      )}
+                    >
+                      {selectedTag ? (
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: selectedTag.color }}
+                            aria-hidden="true"
+                          />
+                          <span style={{ color: selectedTag.color }} className="font-medium">
+                            {selectedTag.name}
+                          </span>
+                        </span>
+                      ) : (
+                        <span>Choisir un tag *</span>
+                      )}
+                      <ChevronDown size={14} className="opacity-50 shrink-0 ml-2" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] max-h-[280px] overflow-y-auto p-1"
+                  >
+                    {tags.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setTagId(t.id);
+                          setTagOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: t.color }}
+                            aria-hidden="true"
+                          />
+                          <span style={{ color: t.color }} className="font-medium">
+                            {t.name}
+                          </span>
+                        </span>
+                        {tagId === t.id && (
+                          <Check size={14} className="shrink-0 ml-2 text-cma-bordeaux" aria-hidden="true" />
+                        )}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               )}
 
               {/* Content */}
