@@ -31,8 +31,10 @@ const protectedRoutes = [
   "/admin",
 ];
 
-// Routes publiques côté non-connectée (redirigent vers /feed si status=active)
-const publicOnlyRoutes = ["/", "/login", "/register", "/forgot-password"];
+// Routes publiques côté non-connectée (redirigent vers /feed si status=active).
+// "/" est exclue volontairement : la page d'accueil affiche le splash screen CMA
+// avant de rediriger vers /feed (côté client, après l'animation).
+const publicOnlyRoutes = ["/login", "/register", "/forgot-password"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

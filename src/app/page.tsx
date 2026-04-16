@@ -1,30 +1,70 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@/components/auth/splash-screen";
 import { LoginForm } from "@/components/auth/login-form";
+import { createClient } from "@/utils/supabase/client";
+
+/**
+ * Détermine si le splash doit s'afficher.
+ *
+ * En PWA standalone, Android peut garder l'app en mémoire (sessionStorage
+ * persiste entre les "lancements"). On utilise localStorage avec un timestamp :
+ * le splash se remontre si la dernière vue date de plus d'1 heure.
+ */
+function shouldShowSplash(): boolean {
+  try {
+    const lastSeen = localStorage.getItem("cmac_splash_ts");
+    if (!lastSeen) return true;
+    const elapsed = Date.now() - Number(lastSeen);
+    const ONE_HOUR = 60 * 60 * 1000;
+    return elapsed > ONE_HOUR;
+  } catch {
+    return true;
+  }
+}
+
+function markSplashSeen() {
+  try {
+    localStorage.setItem("cmac_splash_ts", String(Date.now()));
+  } catch {
+    // Pas critique
+  }
+}
 
 export default function Home() {
-  // showSplash = true uniquement si l'utilisateur n'a pas encore vu l'intro
-  // dans cette session de navigation.
+  const router = useRouter();
   const [showSplash, setShowSplash] = useState(false);
   const [ready, setReady] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
-    const seen = sessionStorage.getItem("cmac_splash_seen");
-    if (!seen) {
+    if (shouldShowSplash()) {
       setShowSplash(true);
     }
     setReady(true);
   }, []);
 
   const handleSplashComplete = () => {
-    sessionStorage.setItem("cmac_splash_seen", "1");
+    markSplashSeen();
     setShowSplash(false);
   };
 
-  // Évite le flash avant que useEffect détermine si le splash doit s'afficher
+  // Après le splash : si connectée → /feed, sinon → LoginForm
+  useEffect(() => {
+    if (showSplash || !ready) return;
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setRedirecting(true);
+        router.replace("/feed");
+      }
+    });
+  }, [showSplash, ready, router]);
+
   if (!ready) return null;
 
   return (
@@ -32,7 +72,7 @@ export default function Home() {
       <AnimatePresence mode="wait">
         {showSplash ? (
           <SplashScreen key="splash" onComplete={handleSplashComplete} />
-        ) : (
+        ) : redirecting ? null : (
           <Suspense key="login" fallback={null}>
             <LoginForm />
           </Suspense>

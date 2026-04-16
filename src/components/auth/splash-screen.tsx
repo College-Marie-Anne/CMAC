@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { GoldenParticles } from "@/components/ui/golden-particles-lazy";
@@ -9,15 +9,49 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
+/**
+ * Splash screen CMA Connect — particules dorées, logo animé, texte doré.
+ *
+ * PWA fix : en mode standalone, le splash natif Android se joue AVANT que le
+ * JS ne charge. Le timer doit commencer seulement quand la page est réellement
+ * peinte à l'écran (pas pendant le splash natif invisible).
+ *
+ * - En navigateur : auto-dismiss après 5s
+ * - En PWA standalone : auto-dismiss après 5s MAIS le timer démarre seulement
+ *   après le premier paint réel (requestAnimationFrame)
+ * - Skippable par tap/Enter/Space dans les deux cas
+ */
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-    }, 5000);
-    return () => clearTimeout(timer);
+    // Attendre que le navigateur ait réellement peint le composant
+    // (après que le splash natif PWA ait disparu).
+    // requestAnimationFrame x2 garantit que le frame a été rendu à l'écran.
+    let raf1: number;
+    let raf2: number;
+
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        // Maintenant le splash React est visible → lancer le timer
+        timerRef.current = setTimeout(() => {
+          setIsVisible(false);
+        }, 5000);
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
+
+  const dismiss = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsVisible(false);
+  };
 
   return (
     <AnimatePresence onExitComplete={onComplete}>
@@ -31,14 +65,13 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           role="button"
           tabIndex={0}
           aria-label="Passer l'animation d'ouverture"
-          onClick={() => setIsVisible(false)}
+          onClick={dismiss}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setIsVisible(false);
+              dismiss();
             }
           }}
-          /* Fondu doux à l'entrée ET à la sortie */
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
