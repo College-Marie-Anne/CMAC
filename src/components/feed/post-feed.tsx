@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useId } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "./post-card";
@@ -42,6 +42,107 @@ export function PostFeed({
   const [tagFilter, setTagFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [isLoadingMore, startLoadMore] = useTransition();
+  const instanceId = useId();
+
+  // Re-sync avec les nouvelles props SSR (ex: après un revalidatePath sur
+  // createPostAction, initialPosts contient le nouveau post). Sans ça, l'état
+  // local `posts` resterait figé à la valeur du premier mount.
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
+
+  // Realtime : on écoute les INSERT sur forum_posts pour afficher les nouveaux
+  // posts des autres utilisatrices sans reload. L'utilisatrice qui poste
+  // elle-même voit son post via revalidatePath côté server action (effet du
+  // useEffect ci-dessus) ; le dedup par id évite les doublons si les 2 events
+  // (realtime + revalidate) arrivent ensemble.
+  //
+  // excludeTagIds est transformé en string pour stabiliser la dep (sinon
+  // l'array nouvelle-référence à chaque render recrée la subscription).
+  const excludeKey = excludeTagIds.join(",");
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`forum-posts:${instanceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "forum_posts",
+        },
+        async (payload) => {
+          const raw = payload.new as {
+            id: string;
+            promo_id: string | null;
+            tag_id: string;
+            is_deleted: boolean;
+            is_pinned: boolean;
+          };
+
+          // Filtrage contextuel : on ignore les posts qui ne doivent pas
+          // apparaître sur cette page (autre promo, tag exclu, etc.).
+          if (raw.is_deleted) return;
+          if (promoId) {
+            if (raw.promo_id !== promoId) return;
+          } else if (raw.promo_id !== null) {
+            return;
+          }
+          if (includeTagId && raw.tag_id !== includeTagId) return;
+          if (
+            !includeTagId &&
+            excludeKey &&
+            excludeKey.split(",").includes(raw.tag_id)
+          ) {
+            return;
+          }
+
+          // Realtime payload = colonnes brutes. On re-fetch avec author + tag
+          // joint pour reconstruire un ForumPost complet.
+          const { data: enriched } = await supabase
+            .from("forum_posts")
+            .select(
+              `id, content, image_url, promo_id, reaction_count, is_pinned, is_edited, created_at, updated_at,
+              author:author_id(id, first_name, last_name, username, avatar_url),
+              tag:tag_id(id, name, color)`
+            )
+            .eq("id", raw.id)
+            .maybeSingle();
+
+          if (!enriched) return; // post supprimé entre-temps, ou RLS bloque
+
+          const newPost: ForumPost = {
+            id: enriched.id,
+            content: enriched.content,
+            image_url: enriched.image_url,
+            promo_id: enriched.promo_id,
+            reaction_count: enriched.reaction_count,
+            comment_count: 0,
+            is_pinned: enriched.is_pinned,
+            is_edited: enriched.is_edited,
+            created_at: enriched.created_at,
+            updated_at: enriched.updated_at,
+            author: Array.isArray(enriched.author)
+              ? enriched.author[0]
+              : enriched.author,
+            tag: Array.isArray(enriched.tag) ? enriched.tag[0] : enriched.tag,
+            user_reactions: [],
+          };
+
+          setPosts((prev) => {
+            if (prev.some((p) => p.id === newPost.id)) return prev; // dedup
+            return [newPost, ...prev];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [instanceId, promoId, includeTagId, excludeKey]);
 
   const filteredPosts =
     tagFilter === "all"

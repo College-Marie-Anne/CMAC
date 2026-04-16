@@ -153,7 +153,17 @@ export async function createPostAction(
       }
     }
 
+    // Revalidation multi-routes : le post peut apparaître sur /feed (sauf
+    // s'il a un tag système ou un promo_id), sur /opportunities (si tag
+    // "Bourses & Opportunités"), et sur /promo (si promo_id). Le Realtime
+    // côté PostFeed rattrape le reste pour les autres utilisatrices.
     revalidatePath("/feed");
+    if (tagInfo?.name === "Bourses & Opportunités") {
+      revalidatePath("/opportunities");
+    }
+    if (parsed.data.promo_id) {
+      revalidatePath("/promo");
+    }
     return { success: true, postId: post.id };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
