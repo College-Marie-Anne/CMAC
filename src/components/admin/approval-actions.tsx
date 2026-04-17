@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatDate } from "@/lib/format-date";
 import {
   UserCheck,
   UserX,
@@ -130,7 +131,7 @@ export function ApprovalActions({ users }: { users: PendingUser[] }) {
                       )}
                       <span className="inline-flex items-center gap-0.5">
                         <Clock size={10} />
-                        {new Date(user.created_at).toLocaleDateString("fr-FR")}
+                        {formatDate(user.created_at)}
                       </span>
                     </div>
                   </div>

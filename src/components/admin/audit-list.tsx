@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { User, Clock } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 type AdminRef = { id: string; first_name: string; last_name: string; username: string } | null;
 
@@ -113,7 +114,7 @@ export function AuditList({
                       )}
                       <span className="inline-flex items-center gap-1">
                         <Clock size={10} />
-                        {new Date(log.created_at).toLocaleString("fr-FR")}
+                        {formatDateTime(log.created_at)}
                       </span>
                     </div>
                     {log.details && Object.keys(log.details).length > 0 && (

@@ -10,6 +10,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { SUPPORT_CATEGORY_LABELS, type SupportCategory } from "@/lib/validations/support";
+import { formatDateLongTime } from "@/lib/format-date";
 
 export const metadata = {
   title: "Ticket de support — CMA Connect",
@@ -112,14 +113,7 @@ export default async function SupportTicketPage({
               {ticket.subject}
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Créé le{" "}
-              {new Date(ticket.created_at).toLocaleDateString("fr-FR", {
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              Créé le {formatDateLongTime(ticket.created_at)}
             </p>
           </div>
 
@@ -147,14 +141,7 @@ export default async function SupportTicketPage({
               </p>
               {ticket.resolved_at ? (
                 <p className="text-xs text-gray-500 mt-3">
-                  Répondu le{" "}
-                  {new Date(ticket.resolved_at).toLocaleDateString("fr-FR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  Répondu le {formatDateLongTime(ticket.resolved_at)}
                 </p>
               ) : null}
             </div>

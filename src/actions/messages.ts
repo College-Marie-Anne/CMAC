@@ -68,9 +68,9 @@ export async function createConversationAction(
     if (error) {
       // Map RPC errors to user-friendly messages
       if (error.message.includes("blocked"))
-        return { success: false, error: "Impossible de contacter cette utilisatrice" };
+        return { success: false, error: "Impossible de contacter cette utilisatrice." };
       if (error.message.includes("yourself"))
-        return { success: false, error: "Vous ne pouvez pas vous envoyer un message" };
+        return { success: false, error: "Vous ne pouvez pas vous envoyer un message." };
       return { success: false, error: error.message };
     }
 

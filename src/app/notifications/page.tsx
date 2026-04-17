@@ -8,6 +8,7 @@ import {
   deleteNotificationAction,
   openNotificationAction,
 } from "@/actions/notifications";
+import { formatDateTime } from "@/lib/format-date";
 
 export const metadata = {
   title: "Notifications — CMA Connect",
@@ -334,7 +335,7 @@ export default async function NotificationsPage({
                             </div>
                             <p className="mt-1 text-sm text-gray-800">{n.content}</p>
                             <p className="mt-1 text-xs text-gray-500">
-                              {new Date(n.created_at).toLocaleString("fr-FR")}
+                              {formatDateTime(n.created_at)}
                             </p>
                             {(() => {
                               const href = resolvedHrefByNotificationId.get(n.id);

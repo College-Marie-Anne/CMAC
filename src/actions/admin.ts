@@ -84,7 +84,7 @@ export async function forceChangePasswordAction(
         success: false,
         error: "Le nouveau mot de passe doit être différent du temporaire",
       };
-    return { success: false, error: "Erreur lors de la mise à jour. Réessayez" };
+    return { success: false, error: "Impossible de mettre à jour. Réessayez." };
   }
 
   await supabase

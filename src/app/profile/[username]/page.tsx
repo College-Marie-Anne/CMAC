@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Globe, Calendar, MessageSquare, FileText } from "lucide-react";
+import { formatDateMonthYear } from "@/lib/format-date";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { ProfileBadges } from "@/components/profile/profile-badges";
 import { ProfileModerationActions } from "@/components/moderation/profile-moderation-actions";
@@ -198,7 +199,7 @@ export default async function ProfilePage({
             {profile.nationality && profile.nationality.length > 0 && (
               <span className="inline-flex items-center gap-1"><Globe size={10} /> {profile.nationality.join(", ")}</span>
             )}
-            <span className="inline-flex items-center gap-1"><Calendar size={10} /> Membre depuis {new Date(profile.created_at).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</span>
+            <span className="inline-flex items-center gap-1"><Calendar size={10} /> Membre depuis {formatDateMonthYear(profile.created_at)}</span>
             {profile.last_seen_at && (
               <span>Active {timeAgo(profile.last_seen_at)}</span>
             )}

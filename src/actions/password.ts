@@ -115,10 +115,10 @@ export async function resetPasswordAction(
     if (error.message.includes("same_password")) {
       return {
         success: false,
-        error: "Le nouveau mot de passe doit être différent de l'ancien",
+        error: "Le nouveau mot de passe doit être différent de l'ancien.",
       };
     }
-    return { success: false, error: "Erreur lors de la mise à jour. Réessayez" };
+    return { success: false, error: "Impossible de mettre à jour le mot de passe. Réessayez." };
   }
 
   // Succès — redirection vers /feed (session déjà active)
@@ -187,7 +187,7 @@ export async function changePasswordAction(
         error: "Le nouveau mot de passe doit être différent de l'ancien.",
       };
     }
-    return { success: false, error: "Erreur lors de la mise à jour. Réessayez." };
+    return { success: false, error: "Impossible de mettre à jour le mot de passe. Réessayez." };
   }
 
   revalidatePath("/settings");

@@ -30,7 +30,7 @@ export async function registerAction(
     const seconds = Math.ceil((resetAt - Date.now()) / 1000);
     return {
       success: false,
-      error: `Trop de tentatives d'inscription. Réessayez dans ${Math.ceil(seconds / 60)} min`,
+      error: `Trop de tentatives d'inscription. Réessayez dans ${Math.ceil(seconds / 60)} min.`,
     };
   }
 
@@ -59,7 +59,7 @@ export async function registerAction(
     // Validation UUID format avant RPC
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidPattern.test(invitationToken)) {
-      return { success: false, error: "Lien d'invitation invalide" };
+      return { success: false, error: "Lien d'invitation invalide." };
     }
 
     const { data: validation, error: valErr } = await supabase.rpc(
@@ -68,19 +68,19 @@ export async function registerAction(
     );
     if (valErr) {
       console.error("[register] validate_invitation_token failed", valErr);
-      return { success: false, error: "Erreur de validation du lien d'invitation" };
+      return { success: false, error: "Impossible de valider le lien d'invitation." };
     }
     const result = Array.isArray(validation) ? validation[0] : validation;
     if (!result?.valid) {
       const reasonMsg: Record<string, string> = {
-        not_found: "Lien d'invitation introuvable",
-        revoked: "Ce lien d'invitation a été révoqué",
-        used: "Ce lien d'invitation a déjà été utilisé",
-        expired: "Ce lien d'invitation a expiré",
+        not_found: "Lien d'invitation introuvable.",
+        revoked: "Ce lien d'invitation a été révoqué.",
+        used: "Ce lien d'invitation a déjà été utilisé.",
+        expired: "Ce lien d'invitation a expiré.",
       };
       return {
         success: false,
-        error: reasonMsg[result?.reason ?? ""] ?? "Lien d'invitation invalide",
+        error: reasonMsg[result?.reason ?? ""] ?? "Lien d'invitation invalide.",
       };
     }
     inviteValid = true;
@@ -95,7 +95,7 @@ export async function registerAction(
     .maybeSingle();
 
   if (existingUser) {
-    return { success: false, error: "Ce username est déjà pris" };
+    return { success: false, error: "Ce username est déjà pris." };
   }
 
   // ─── 2. Résoudre ou créer la promotion ───
@@ -128,7 +128,7 @@ export async function registerAction(
         console.error("[register] promotion upsert failed:", promoError);
         return {
           success: false,
-          error: "Erreur lors de la création de la promotion",
+          error: "Impossible de créer la promotion.",
         };
       }
       promoId = upserted.id;
@@ -171,12 +171,12 @@ export async function registerAction(
 
   if (authError || !authData.user) {
     if (authError?.message?.includes("already registered")) {
-      return { success: false, error: "Cet email est déjà utilisé" };
+      return { success: false, error: "Cet email est déjà utilisé." };
     }
     console.error("[register] signUp failed:", authError);
     return {
       success: false,
-      error: authError?.message ?? "Erreur lors de la création du compte",
+      error: authError?.message ?? "Impossible de créer le compte.",
     };
   }
 
@@ -201,7 +201,7 @@ export async function registerAction(
     if (enrollment < 1980 || enrollment > currentYear + 1) {
       // Cleanup : user créé mais données invalides
       await admin.auth.admin.deleteUser(userId);
-      return { success: false, error: "Année d'entrée au collège invalide" };
+      return { success: false, error: "Année d'entrée au collège invalide." };
     }
 
     const yearsToAdd =
@@ -276,12 +276,12 @@ export async function registerAction(
     // username, plutôt qu'un "Erreur lors de la création du profil" générique.
     if (profileError.code === "23505") {
       if (profileError.message?.includes("profiles_username_key")) {
-        return { success: false, error: "Ce username est déjà pris" };
+        return { success: false, error: "Ce username est déjà pris." };
       }
-      return { success: false, error: "Ce compte existe déjà" };
+      return { success: false, error: "Ce compte existe déjà." };
     }
 
-    return { success: false, error: "Erreur lors de la création du profil" };
+    return { success: false, error: "Impossible de créer le profil." };
   }
 
   // ─── 7. Insérer les données liées (admin client) ───

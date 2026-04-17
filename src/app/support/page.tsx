@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, LifeBuoy, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { SupportTicketForm } from "@/components/support/support-ticket-form";
+import { formatDateLong } from "@/lib/format-date";
 
 export const metadata = {
   title: "Support — CMA Connect",
@@ -142,11 +143,7 @@ export default async function SupportPage({
                             {t.subject}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {new Date(t.created_at).toLocaleDateString("fr-FR", {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            })}
+                            {formatDateLong(t.created_at)}
                           </p>
                         </div>
                         <span

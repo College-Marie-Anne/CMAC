@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import { formatDate } from "@/lib/format-date";
 import {
   Clock,
   CheckCircle2,
@@ -118,7 +119,7 @@ export function SupportList({ tickets }: { tickets: Ticket[] }) {
                           <span>Assigné : @{assigned.username}</span>
                         )}
                         <span>
-                          {new Date(ticket.created_at).toLocaleDateString("fr-FR")}
+                          {formatDate(ticket.created_at)}
                         </span>
                       </div>
                     </div>

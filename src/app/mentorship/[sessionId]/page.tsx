@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MessageSquare, Handshake } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 type SessionRow = {
   id: string;
@@ -155,7 +156,7 @@ export default async function MentorshipSessionPage({
             <div className="rounded-xl bg-gray-50 p-3">
               <p className="text-xs text-gray-500">Demarree le</p>
               <p className="text-sm font-semibold text-gray-900">
-                {new Date(typedSession.started_at).toLocaleString("fr-FR")}
+                {formatDateTime(typedSession.started_at)}
               </p>
             </div>
           </div>

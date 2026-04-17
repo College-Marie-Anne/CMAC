@@ -33,7 +33,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     const seconds = Math.ceil((resetAt - Date.now()) / 1000);
     return {
       success: false,
-      error: `Trop de tentatives. Réessayez dans ${seconds}s`,
+      error: `Trop de tentatives. Réessayez dans ${seconds}s.`,
     };
   }
 
@@ -61,7 +61,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     );
 
     if (!profileId) {
-      return { success: false, error: "Aucun compte trouvé avec cet identifiant" };
+      return { success: false, error: "Aucun compte trouvé avec cet identifiant." };
     }
 
     const { data: resolvedEmail } = await admin.rpc(
@@ -75,7 +75,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     if (parts.length < 2) {
       return {
         success: false,
-        error: "Entrez vos prénoms suivis de votre nom de famille",
+        error: "Entrez vos prénoms suivis de votre nom de famille.",
       };
     }
 
@@ -96,10 +96,10 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
       if (dob) {
         return {
           success: false,
-          error: "Aucun compte ne correspond à ce nom et cette date de naissance",
+          error: "Aucun compte ne correspond à ce nom et cette date de naissance.",
         };
       }
-      return { success: false, error: "Aucun compte trouvé avec ce nom" };
+      return { success: false, error: "Aucun compte trouvé avec ce nom." };
     }
 
     // Homonymes sans DOB → demander la date de naissance
@@ -108,11 +108,35 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
         success: false,
         needsDob: true,
         matches: matchedIds.length,
-        error: "Plusieurs comptes correspondent à ce nom",
+        error: "Plusieurs comptes correspondent à ce nom.",
       };
     }
 
-    // Même nom + même DOB → envoyer un code OTP par email
+    // Cas dégénéré — 3+ comptes avec EXACTEMENT le même (prénoms, nom, DOB).
+    // Ce cas ne devrait quasi jamais se produire en pratique (jumelles avec
+    // mêmes prénoms exacts ?) mais pose un problème UX : l'utilisatrice ne
+    // peut pas distinguer les comptes. Plutôt que d'envoyer 3+ OTP sur 3+
+    // emails (confusion + bruit), on refuse et on oriente vers une méthode
+    // non-ambiguë (username ou email direct).
+    //
+    // Seuil à 3 (pas 2) : 2 homonymes parfaits reste rare mais gérable via
+    // OTP (une seule utilisatrice reçoit l'OTP sur SA boîte email → le flow
+    // verifyOtp + user.id match sélectionne le bon compte). Au-delà, on
+    // préfère jouer safe.
+    if (matchedIds.length > 2 && dob) {
+      console.warn(
+        `[login] ${matchedIds.length} comptes avec nom+DOB identiques — refus de l'auth par fullname pour éviter l'ambiguïté`
+      );
+      return {
+        success: false,
+        error:
+          "Trop de comptes correspondent à ces informations. Connectez-vous avec votre username ou email.",
+      };
+    }
+
+    // Même nom + même DOB (2 matches) → envoyer un code OTP par email.
+    // Flow safe : verifyOtp + comparaison otpData.user.id === p.id garantit
+    // que la session créée correspond au profil dont l'email a reçu le code.
     if (matchedIds.length > 1 && dob && !otp_code) {
       for (const p of matchedIds) {
         const { data: pEmail } = await admin.rpc(
@@ -129,7 +153,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
         needsOtp: true,
         matches: matchedIds.length,
         error:
-          "Un code de vérification a été envoyé aux adresses email correspondantes. Entrez le code reçu",
+          "Un code de vérification a été envoyé aux adresses email correspondantes. Entrez le code reçu.",
       };
     }
 
@@ -163,7 +187,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
         return {
           success: false,
           needsOtp: true,
-          error: "Code invalide ou expiré. Réessayez",
+          error: "Code invalide ou expiré. Réessayez.",
         };
       }
     }
@@ -181,7 +205,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
   if (!email) {
     return {
       success: false,
-      error: "Impossible de résoudre votre identifiant",
+      error: "Impossible de résoudre votre identifiant.",
     };
   }
 
@@ -200,9 +224,22 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     );
 
     if (authError.message.includes("Invalid login credentials")) {
-      return { success: false, error: "Identifiant ou mot de passe incorrect" };
+      return { success: false, error: "Identifiant ou mot de passe incorrect." };
     }
-    return { success: false, error: "Erreur de connexion. Réessayez" };
+    // Email pas confirmé : Supabase Auth refuse le login tant que l'utilisatrice
+    // n'a pas cliqué sur le lien reçu par email. Message précis + actionnable
+    // (plutôt que "Erreur de connexion" générique qui égarait les utilisatrices).
+    if (
+      authError.message.includes("Email not confirmed") ||
+      authError.message.includes("email_not_confirmed")
+    ) {
+      return {
+        success: false,
+        error:
+          "Votre email n'est pas encore vérifié. Consultez votre boîte de réception pour le lien de confirmation.",
+      };
+    }
+    return { success: false, error: "Un problème est survenu. Réessayez." };
   }
 
   // ─── Étape C — Vérification du statut (Critique) ───
@@ -212,7 +249,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "Erreur de connexion. Réessayez" };
+    return { success: false, error: "Un problème est survenu. Réessayez." };
   }
 
   const { data: profile, error: profileErr } = await supabase
@@ -225,7 +262,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     await supabase.auth.signOut();
     return {
       success: false,
-      error: "Profil introuvable. Contactez un administrateur",
+      error: "Profil introuvable. Contactez un administrateur.",
     };
   }
 
@@ -235,21 +272,21 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
       return {
         success: false,
         error:
-          "Votre compte est en attente de validation par un administrateur",
+          "Votre compte est en attente de validation par un administrateur.",
       };
     case "suspended":
       await supabase.auth.signOut();
       return {
         success: false,
         error:
-          "Votre compte a été suspendu. Contactez un administrateur",
+          "Votre compte a été suspendu. Contactez un administrateur.",
       };
     case "deactivated":
       await supabase.auth.signOut();
       return {
         success: false,
         error:
-          "Votre compte est désactivé. Contactez un administrateur pour le réactiver",
+          "Votre compte est désactivé. Contactez un administrateur pour le réactiver.",
       };
     case "active":
       await supabase
@@ -259,7 +296,7 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
       break;
     default:
       await supabase.auth.signOut();
-      return { success: false, error: "Statut de compte inconnu" };
+      return { success: false, error: "Statut de compte inconnu." };
   }
 
   revalidatePath("/feed");

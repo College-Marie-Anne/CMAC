@@ -234,36 +234,34 @@ export async function voteCandidateAction(electionId: string, candidateId: strin
       return { success: false, error: "La phase de vote n'est pas/plus active" };
     }
 
-    // Le vote est un upsert technique (on efface le précédent et ajoute le nouveau ou gère via Trigger ou Constraint)
-    // D'abord on vérifie s'il y a déjà un vote
-    const { data: existingVote } = await supabase
+    // Vote atomique via UPSERT sur la contrainte UNIQUE (election_id, voter_id).
+    //
+    // Avant ce fix :
+    //   1. SELECT existingVote — TOUJOURS null car la policy RESTRICTIVE
+    //      `promo_votes_select_deny` (migration 014) bloque tout SELECT
+    //      (votes anonymes by design).
+    //   2. Le bloc `if (existingVote)` était donc DEAD CODE — jamais exécuté.
+    //   3. Un changement de vote faisait un INSERT direct → violation UNIQUE
+    //      23505 silencieuse (erreur non capturée) → impossible de changer
+    //      d'avis sans que l'utilisatrice le sache.
+    //
+    // Le upsert avec onConflict fait INSERT ... ON CONFLICT DO UPDATE côté
+    // Postgres : atomique, pas de race entre 2 clicks rapides, gère premier
+    // vote ET changement de vote en une seule query. Le trigger
+    // `update_candidate_vote_count` s'occupe du recalcul dénormalisé sur
+    // promo_candidates.vote_count.
+    const { error: voteError } = await supabase
       .from("promo_votes")
-      .select("id, promo_candidate_id")
-      .eq("election_id", electionId)
-      .eq("voter_id", user.id)
-      .single();
+      .upsert(
+        {
+          election_id: electionId,
+          voter_id: user.id,
+          promo_candidate_id: candidateId,
+        },
+        { onConflict: "election_id,voter_id" }
+      );
 
-    if (existingVote) {
-       if (existingVote.promo_candidate_id === candidateId) {
-          return { success: true }; // Déjà voté pour elle
-       }
-       // Delete old vote
-       await supabase.from("promo_votes").delete().eq("id", existingVote.id);
-       
-       // Insert new vote
-       await supabase.from("promo_votes").insert({
-         election_id: electionId,
-         voter_id: user.id,
-         promo_candidate_id: candidateId
-       });
-    } else {
-       // Insert vote
-       await supabase.from("promo_votes").insert({
-         election_id: electionId,
-         voter_id: user.id,
-         promo_candidate_id: candidateId
-       });
-    }
+    if (voteError) throw voteError;
 
     revalidatePath("/promo/election");
     return { success: true };

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/format-date";
 import {
   Link2,
   CheckCircle2,
@@ -115,7 +116,7 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
                             <li key={i} className="text-gray-600">
                               @{u.username || "—"}
                               <span className="text-gray-400 ml-1.5">
-                                · {new Date(u.used_at).toLocaleDateString("fr-FR")}
+                                · {formatDate(u.used_at)}
                               </span>
                             </li>
                           ))}
@@ -123,8 +124,8 @@ export function InvitationsList({ links }: { links: InvLink[] }) {
                       </div>
                     )}
                     <div className="flex gap-3 text-[10px] text-gray-400">
-                      <span>Créé : {new Date(link.created_at).toLocaleDateString("fr-FR")}</span>
-                      <span>Expire : {new Date(link.expires_at).toLocaleDateString("fr-FR")}</span>
+                      <span>Créé : {formatDate(link.created_at)}</span>
+                      <span>Expire : {formatDate(link.expires_at)}</span>
                     </div>
                   </div>
                   {status.label === "Actif" && (

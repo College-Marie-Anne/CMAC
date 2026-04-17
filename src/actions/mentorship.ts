@@ -68,7 +68,7 @@ export async function sendMentorshipRequestAction(formData: FormData) {
 
     if (rpErr) {
       console.error("Mentorship send error:", rpErr);
-      return { success: false, error: "Erreur serveur" };
+      return { success: false, error: "Un problème est survenu. Réessayez." };
     }
 
     // Create notification if target is specific mentor
@@ -92,7 +92,7 @@ export async function sendMentorshipRequestAction(formData: FormData) {
     revalidatePath("/mentorship");
     return { success: true, data: request };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
+    return { success: false, error: err instanceof Error ? err.message : "Un problème est survenu. Réessayez." };
   }
 }
 
@@ -113,9 +113,9 @@ export async function acceptMentorshipRequestAction(requestId: string) {
     if (rpcErr) {
       console.error("Mentorship accept error:", rpcErr);
       if (rpcErr.message.includes("quota") || rpcErr.message.includes("3 active")) {
-        return { success: false, error: "L'élève a atteint son quota de 3 mentorats" };
+        return { success: false, error: "L'élève a atteint son quota de 3 mentorats." };
       }
-      return { success: false, error: "Impossible d'accepter la requête" };
+      return { success: false, error: "Impossible d'accepter la requête." };
     }
 
     // Inform the mentee via RPC notify_user (préférence opt-in 'mentorship').
@@ -137,7 +137,7 @@ export async function acceptMentorshipRequestAction(requestId: string) {
     revalidatePath("/mentorship");
     return { success: true };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
+    return { success: false, error: err instanceof Error ? err.message : "Un problème est survenu. Réessayez." };
   }
 }
 
@@ -156,11 +156,11 @@ export async function declineMentorshipRequestAction(requestId: string) {
       .select("mentor_id, mentee_id, status")
       .eq("id", requestId)
       .single();
-    if (reqErr || !reqData) return { success: false, error: "Requête introuvable" };
-    if (reqData.status !== "pending") return { success: false, error: "Requête déjà traitée" };
+    if (reqErr || !reqData) return { success: false, error: "Requête introuvable." };
+    if (reqData.status !== "pending") return { success: false, error: "Requête déjà traitée." };
 
     if (reqData.mentor_id && reqData.mentor_id !== user.id) {
-      return { success: false, error: "Operation non autorisee" };
+      return { success: false, error: "Opération non autorisée." };
     }
 
     const { error: updErr } = await supabase
@@ -170,7 +170,7 @@ export async function declineMentorshipRequestAction(requestId: string) {
 
     if (updErr) {
       console.error("Mentorship decline error:", updErr);
-      return { success: false, error: "Erreur lors du déclin" };
+      return { success: false, error: "Impossible de refuser la requête." };
     }
 
     if (reqData.mentee_id && reqData.mentee_id !== user.id) {
@@ -189,7 +189,7 @@ export async function declineMentorshipRequestAction(requestId: string) {
     revalidatePath("/mentorship");
     return { success: true };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
+    return { success: false, error: err instanceof Error ? err.message : "Un problème est survenu. Réessayez." };
   }
 }
 
@@ -205,7 +205,7 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
     // Check if user is part of the session
     const { data: session } = await supabase.from("mentorship_sessions").select("mentor_id, mentee_id").eq("id", sessionId).single();
     if (!session || (session.mentor_id !== user.id && session.mentee_id !== user.id)) {
-      return { success: false, error: "Opération non autorisée" };
+      return { success: false, error: "Opération non autorisée." };
     }
 
     const { error: updErr } = await supabase
@@ -215,7 +215,7 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
 
     if (updErr) {
       console.error("Mentorship terminate session error:", updErr);
-      return { success: false, error: "Impossible de terminer la session" };
+      return { success: false, error: "Impossible de terminer la session." };
     }
 
     // Determine target to notify (l'autre partie de la session)
@@ -236,6 +236,6 @@ export async function terminateMentorshipSessionAction(sessionId: string) {
     revalidatePath("/mentorship");
     return { success: true };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Erreur interne" };
+    return { success: false, error: err instanceof Error ? err.message : "Un problème est survenu. Réessayez." };
   }
 }

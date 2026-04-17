@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Trophy, Calendar, XCircle } from "lucide-react";
+import { formatDateLong } from "@/lib/format-date";
 
 export const metadata = {
   title: "Historique des élections — CMA Connect",
@@ -176,11 +177,7 @@ export default async function ElectionsHistoryPage() {
                           aria-hidden="true"
                         />
                         <span className="text-xs text-gray-500">
-                          {new Date(e.created_at).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })}
+                          {formatDateLong(e.created_at)}
                         </span>
                       </div>
                       <p

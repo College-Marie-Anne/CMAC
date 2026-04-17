@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatDate } from "@/lib/format-date";
 import {
   Link2,
   Copy,
@@ -302,7 +303,7 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
                   </span>
                   <span className="text-[10px] text-gray-400">
                     Créé le{" "}
-                    {new Date(link.created_at).toLocaleDateString("fr-FR")}
+                    {formatDate(link.created_at)}
                   </span>
                 </div>
 
@@ -325,7 +326,7 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
                           {u.name}
                         </span>
                         <span className="text-gray-400 ml-1">
-                          · {new Date(u.used_at).toLocaleDateString("fr-FR")}
+                          · {formatDate(u.used_at)}
                         </span>
                       </li>
                     ))}

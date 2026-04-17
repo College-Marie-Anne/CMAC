@@ -4,6 +4,7 @@ import { ArrowLeft, Crown, ShieldCheck, GraduationCap, Briefcase, Calendar, MapP
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { UserDetailActions } from "@/components/admin/user-detail-actions";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 
 export default async function UserDetailPage({
   params,
@@ -159,7 +160,7 @@ export default async function UserDetailPage({
                 )}
                 {profile.date_of_birth && (
                   <span className="inline-flex items-center gap-1">
-                    <Calendar size={10} /> {new Date(profile.date_of_birth).toLocaleDateString("fr-FR")}
+                    <Calendar size={10} /> {formatDate(profile.date_of_birth)}
                   </span>
                 )}
                 {profile.filiere && <span>Filière : {profile.filiere}</span>}
@@ -288,13 +289,13 @@ export default async function UserDetailPage({
           <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
             <div>
               <span className="text-gray-400">Inscrit le</span>
-              <p className="text-gray-700">{new Date(profile.created_at).toLocaleDateString("fr-FR")}</p>
+              <p className="text-gray-700">{formatDate(profile.created_at)}</p>
             </div>
             <div>
               <span className="text-gray-400">Dernière connexion</span>
               <p className="text-gray-700">
                 {profile.last_seen_at
-                  ? new Date(profile.last_seen_at).toLocaleString("fr-FR")
+                  ? formatDateTime(profile.last_seen_at)
                   : "Jamais"}
               </p>
             </div>
@@ -324,7 +325,7 @@ export default async function UserDetailPage({
                     {log.action}
                   </span>
                   <span className="text-gray-400">
-                    {new Date(log.created_at).toLocaleString("fr-FR")}
+                    {formatDateTime(log.created_at)}
                   </span>
                 </div>
               ))}

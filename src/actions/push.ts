@@ -88,7 +88,7 @@ export async function savePushSubscriptionAction(
 
     if (error) {
       console.error("[push] upsert subscription failed", error);
-      return { success: false, error: "Impossible d'enregistrer la subscription" };
+      return { success: false, error: "Impossible d'enregistrer la subscription." };
     }
 
     // Activer le flag push_enabled. L'UPDATE est silencieux si la ligne
@@ -123,7 +123,7 @@ export async function deletePushSubscriptionAction(
     const { supabase, user } = await requireActiveUser();
 
     if (!endpoint || typeof endpoint !== "string" || endpoint.length > 1000) {
-      return { success: false, error: "Endpoint invalide" };
+      return { success: false, error: "Endpoint invalide." };
     }
 
     const { error } = await supabase
@@ -134,7 +134,7 @@ export async function deletePushSubscriptionAction(
 
     if (error) {
       console.error("[push] delete subscription failed", error);
-      return { success: false, error: "Impossible de supprimer la subscription" };
+      return { success: false, error: "Impossible de supprimer la subscription." };
     }
 
     // Si plus aucune subscription → bascule push_enabled=false

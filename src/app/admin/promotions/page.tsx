@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -693,7 +694,7 @@ export default function PromotionsPage() {
                             <Users size={10} className="inline mr-1" />{promo.memberCount} membre(s) lié(s)
                           </span>
                           <span className="text-xs text-gray-400">
-                            Créée le {new Date(promo.created_at).toLocaleDateString("fr-FR")}
+                            Créée le {formatDate(promo.created_at)}
                           </span>
                         </div>
                       </div>

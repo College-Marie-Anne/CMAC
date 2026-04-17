@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatDate } from "@/lib/format-date";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -118,7 +119,7 @@ export function ModerationList({ reports }: { reports: Report[] }) {
                       {report.status}
                     </span>
                     <span className="text-[10px] text-gray-400">
-                      {new Date(report.created_at).toLocaleDateString("fr-FR")}
+                      {formatDate(report.created_at)}
                     </span>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, User, Tag } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TicketActions } from "@/components/admin/ticket-actions";
+import { formatDateTime } from "@/lib/format-date";
 
 const CATEGORY_LABELS: Record<string, string> = {
   profile_modification: "Modification de profil",
@@ -97,15 +98,14 @@ export default async function TicketDetailPage({
             )}
             <span className="inline-flex items-center gap-1">
               <Clock size={10} />
-              {new Date(ticket.created_at).toLocaleString("fr-FR")}
+              {formatDateTime(ticket.created_at)}
             </span>
             {assigned && (
               <span>Assigné à @{assigned.username}</span>
             )}
             {ticket.resolved_at && (
               <span>
-                Résolu le{" "}
-                {new Date(ticket.resolved_at).toLocaleString("fr-FR")}
+                Résolu le {formatDateTime(ticket.resolved_at)}
               </span>
             )}
           </div>

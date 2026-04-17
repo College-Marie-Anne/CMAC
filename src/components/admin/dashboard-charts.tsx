@@ -11,6 +11,7 @@ import { LineChartCard } from "@/components/admin/charts/line-chart-card";
 import { DonutChartCard } from "@/components/admin/charts/donut-chart-card";
 import { BarChartCard } from "@/components/admin/charts/bar-chart-card";
 import { CMA_LOGO_BASE64 } from "@/lib/logo-base64";
+import { formatDate, formatTime } from "@/lib/format-date";
 
 type MemberRow = {
   first_name: string; last_name: string; username: string; role: string;
@@ -65,7 +66,7 @@ interface Props {
 // ─── CSV ───
 function downloadCSV(members: MemberRow[]) {
   const h = ["Prénoms","Nom","Username","Rôle","Statut","Nationalité","Pays","Filière","Classe","Inscription","Dernière connexion"];
-  const rows = members.map((m) => [m.first_name, m.last_name, m.username, m.role, m.status, (m.nationality ?? []).join(" / "), m.country ?? "", m.filiere ?? "", m.class ?? "", new Date(m.created_at).toLocaleDateString("fr-FR"), m.last_seen_at ? new Date(m.last_seen_at).toLocaleDateString("fr-FR") : "Jamais"]);
+  const rows = members.map((m) => [m.first_name, m.last_name, m.username, m.role, m.status, (m.nationality ?? []).join(" / "), m.country ?? "", m.filiere ?? "", m.class ?? "", formatDate(m.created_at), m.last_seen_at ? formatDate(m.last_seen_at) : "Jamais"]);
   const bom = "\uFEFF";
   const csv = bom + [h, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -88,7 +89,7 @@ async function downloadPDF(p: Props) {
   const chk = () => { if (y > 270) { doc.addPage(); y = 15; } };
 
   title("CMA Connect - Rapport Dashboard");
-  doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text(`Généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`, 14, y); y += 8;
+  doc.setFontSize(8); doc.setTextColor(150,150,150); doc.text(`Généré le ${formatDate(new Date())} à ${formatTime(new Date())}`, 14, y); y += 8;
 
   sub("Indicateurs clés"); kv("Total membres", p.kpis.totalMembers); kv("Nouvelles inscriptions", p.kpis.newThisWeek); kv("En attente", p.kpis.pending); kv("Engagement", `${p.kpis.engagementRate}%`); kv("Mentorats actifs", p.activeMentorships); kv("Demandes mentorat", p.pendingMentorRequests); kv("Élections tenues", p.completedElections); kv("Promos sans chef", p.promosWithoutLeader); kv("Inactives >30j", p.inactiveCount); kv("Taux modération", `${p.modRate}%`); kv("Conversations actives", p.activeConvos); kv("Délai mentorat", `${p.avgDelay}h`); sep();
 
