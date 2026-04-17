@@ -339,9 +339,30 @@ export function RegisterForm({
 
     setServerError(null);
     startTransition(async () => {
-      const result = await registerAction(formData, invitationToken);
-      if (!result.success && result.error) {
-        setServerError(result.error);
+      try {
+        const result = await registerAction(formData, invitationToken);
+        if (!result.success && result.error) {
+          setServerError(result.error);
+        }
+      } catch (err) {
+        // Erreurs réseau pendant le POST du Server Action (fréquentes sur
+        // mobile Safari : switch WiFi/4G, tab en arrière-plan, connexion
+        // instable → "TypeError: Load failed"). On montre un message
+        // actionnable plutôt que de laisser l'erreur remonter à Sentry + le
+        // global-error. Le redirect() d'un succès throw NEXT_REDIRECT — on
+        // le re-throw pour laisser Next.js faire la navigation.
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("NEXT_REDIRECT")) throw err;
+        const isNetwork =
+          msg.includes("Load failed") ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("network");
+        setServerError(
+          isNetwork
+            ? "Connexion perdue. Vérifie ton réseau puis réessaie."
+            : "Une erreur est survenue. Réessaie dans un instant."
+        );
       }
     });
   };

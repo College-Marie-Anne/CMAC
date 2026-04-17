@@ -64,6 +64,29 @@ export function SerwistProvider(props: SerwistProviderProps) {
       );
     };
 
+    // Erreurs réseau iOS Safari / Firefox Android pendant un fetch (souvent
+    // un Server Action POST ou un appel Supabase). "Load failed" (WebKit) et
+    // "Failed to fetch" (Chromium/Firefox) sont le même symptôme : connexion
+    // instable, switch WiFi/4G, tab mis en arrière-plan juste avant le fetch.
+    // Les composants métier (register-form, comment-form, etc.) catchent déjà
+    // ces erreurs localement pour afficher un message UX. Celles qui se
+    // glissent à travers (fetchs internes de Next.js router, etc.) n'ont pas
+    // de valeur à remonter — elles ne sont pas actionnables.
+    // Sentry issue 0911f517 : /register/invite/[token] POST fail iOS Safari.
+    const isTransientNetworkError = (reason: unknown): boolean => {
+      const msg =
+        (reason as { message?: string })?.message ??
+        (typeof reason === "string" ? reason : "");
+      if (!msg) return false;
+      return (
+        msg === "Load failed" ||
+        msg === "Failed to fetch" ||
+        msg === "NetworkError when attempting to fetch resource." ||
+        msg.includes("The network connection was lost") ||
+        msg.includes("The Internet connection appears to be offline")
+      );
+    };
+
     const onUnhandled = (e: PromiseRejectionEvent) => {
       if (isSwLoadFailure(e.reason)) {
         console.warn("[sw] registration failed, continuing without PWA:", e.reason);
@@ -72,6 +95,11 @@ export function SerwistProvider(props: SerwistProviderProps) {
       }
       if (isSupabaseAuthLockStolen(e.reason)) {
         console.warn("[auth] lock stolen (transient, supabase retries):", e.reason);
+        e.preventDefault();
+        return;
+      }
+      if (isTransientNetworkError(e.reason)) {
+        console.warn("[net] transient network error (offline / tab backgrounded):", e.reason);
         e.preventDefault();
         return;
       }
