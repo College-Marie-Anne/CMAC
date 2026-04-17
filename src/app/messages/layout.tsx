@@ -21,11 +21,27 @@ export default async function MessagesLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("id, role, status")
-    .eq("id", user.id)
-    .single();
+  // Parallélise le check de statut profile ET le fetch des conversations :
+  // les deux ne dépendent que de `user.id`, pas besoin de sérialiser. Gain
+  // ~50ms en 4G (1 round-trip au lieu de 2).
+  const [profileRes, convsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, role, status")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("conversations")
+      .select(
+        "id, participant_1, participant_2, last_message_at, archived_by_1, archived_by_2"
+      )
+      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(20),
+  ]);
+
+  const { data: profile, error: profileErr } = profileRes;
+  const { data: rawConvs } = convsRes;
 
   if (profileErr || !profile || profile.status !== "active") {
     await supabase.auth.signOut();
@@ -37,34 +53,44 @@ export default async function MessagesLayout({
     redirect("/feed");
   }
 
-  // Fetch des conversations UNE SEULE FOIS (plus de duplication avec page.tsx).
-  const { data: rawConvs } = await supabase
-    .from("conversations")
-    .select("id, participant_1, participant_2, last_message_at, archived_by_1, archived_by_2")
-    .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
-    .order("last_message_at", { ascending: false, nullsFirst: false })
-    .limit(20);
-
   let conversations: Conversation[] = [];
 
   if (rawConvs && rawConvs.length > 0) {
     const otherIds = rawConvs.map((c) =>
       c.participant_1 === user.id ? c.participant_2 : c.participant_1
     );
+    const convIds = rawConvs.map((c) => c.id);
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, first_name, last_name, username, avatar_url, last_seen_at")
-      .in("id", otherIds);
+    // 3 requêtes indépendantes (profiles des autres participants, derniers
+    // messages par conversation, compteur unread) : toutes dépendent de
+    // otherIds/convIds mais PAS entre elles → Promise.all économise 2 RTT
+    // (~100ms en 4G).
+    const [profilesRes, lastMsgsRes, unreadRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, first_name, last_name, username, avatar_url, last_seen_at")
+        .in("id", otherIds),
+      supabase
+        .from("direct_messages")
+        .select(
+          "conversation_id, content, sender_id, is_deleted_by_sender, is_deleted_by_receiver"
+        )
+        .in("conversation_id", convIds)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("direct_messages")
+        .select("conversation_id")
+        .in("conversation_id", convIds)
+        .neq("sender_id", user.id)
+        .eq("is_deleted_by_receiver", false)
+        .eq("is_read", false),
+    ]);
+
+    const { data: profiles } = profilesRes;
+    const { data: lastMessages } = lastMsgsRes;
+    const { data: unreadRows } = unreadRes;
 
     const profileMap = new Map(profiles?.map((p) => [p.id, p]) ?? []);
-
-    const convIds = rawConvs.map((c) => c.id);
-    const { data: lastMessages } = await supabase
-      .from("direct_messages")
-      .select("conversation_id, content, sender_id, is_deleted_by_sender, is_deleted_by_receiver")
-      .in("conversation_id", convIds)
-      .order("created_at", { ascending: false });
 
     const lastMsgMap = new Map<string, string>();
     for (const msg of lastMessages ?? []) {
@@ -76,14 +102,6 @@ export default async function MessagesLayout({
         lastMsgMap.set(msg.conversation_id, msg.content);
       }
     }
-
-    const { data: unreadRows } = await supabase
-      .from("direct_messages")
-      .select("conversation_id")
-      .in("conversation_id", convIds)
-      .neq("sender_id", user.id)
-      .eq("is_deleted_by_receiver", false)
-      .eq("is_read", false);
 
     const unreadMap = new Map<string, number>();
     for (const r of unreadRows ?? []) {

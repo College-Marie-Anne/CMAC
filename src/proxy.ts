@@ -37,6 +37,29 @@ const protectedRoutes = [
 // reste visible uniquement pour les non-connectées sur /.
 const publicOnlyRoutes = ["/", "/login", "/register", "/forgot-password"];
 
+// Routes "neutres" pour utilisatrice connectée : ni check de statut, ni
+// redirect obligatoire. On skip le SELECT profile (économie ~50ms/nav en 4G).
+// - /legal/*          : CGU + privacy, accessibles à tous les statuts
+// - /offline          : fallback Service Worker
+// - /maintenance      : déjà géré en amont (early return)
+// - /auth/*           : callback, reset-password, verify-email, change-password
+//                       (le guard must_change_password n'a pas besoin du SELECT
+//                        ici, on est déjà sur /auth/*)
+// - /_next, /api, etc : déjà exclus par le matcher
+function isNeutralRoute(pathname: string): boolean {
+  return (
+    pathname.startsWith("/legal/") ||
+    pathname === "/offline" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
+// Throttle last_seen_at via cookie : sans ça, un UPDATE partait à chaque nav
+// (même fire-and-forget) → bruit DB + Supabase logs. 5 min est cohérent avec
+// la granularité d'affichage "en ligne" dans le directory/messages.
+const LAST_SEEN_COOKIE = "cmac-seen-at";
+const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -99,6 +122,15 @@ export async function proxy(request: NextRequest) {
 
   // 4. Non authentifié et pas sur route protégée → laisser passer
   if (!user) {
+    return supabaseResponse;
+  }
+
+  // 4b. Routes neutres pour user connectée : on skip le SELECT profile.
+  // Gain typique : ~50ms/nav sur /legal/*, /offline, /auth/*. Tradeoff accepté :
+  // un compte pending peut atteindre /auth/change-password (OK, c'est prévu)
+  // ou /legal/terms (OK, accessible à tous les statuts). Aucune route protégée
+  // n'est neutre.
+  if (isNeutralRoute(pathname)) {
     return supabaseResponse;
   }
 
@@ -169,12 +201,26 @@ export async function proxy(request: NextRequest) {
     }
 
     // 8. Centraliser last_seen_at ici (au lieu de chaque page)
-    // Fire-and-forget — pas de await pour ne pas ralentir la navigation.
-    supabase
-      .from("profiles")
-      .update({ last_seen_at: new Date().toISOString() })
-      .eq("id", user.id)
-      .then();
+    // Throttlé à 1x / 5min via cookie : évite N UPDATE DB inutiles par session
+    // (avant, chaque nav partait à l'écriture, même fire-and-forget). Le cookie
+    // est lu sans DB, l'UPDATE ne part qu'au-delà du seuil.
+    const lastSeen = Number(request.cookies.get(LAST_SEEN_COOKIE)?.value ?? 0);
+    if (Date.now() - lastSeen >= LAST_SEEN_THROTTLE_MS) {
+      // Fire-and-forget — pas de await pour ne pas ralentir la navigation.
+      supabase
+        .from("profiles")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .then();
+
+      supabaseResponse.cookies.set(LAST_SEEN_COOKIE, String(Date.now()), {
+        httpOnly: false,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24, // 1 jour — le cookie sert juste de throttle
+      });
+    }
   }
 
   return supabaseResponse;
