@@ -79,17 +79,19 @@ export default function RootLayout({
             affiche l'install prompt). @serwist/turbopack renvoie l'en-tête
             Service-Worker-Allowed: / côté serveur qui autorise ce scope.
 
-            reloadOnOnline=true : reload auto quand la connexion revient
-            (utile pour les PWA Android qui hibernent).
+            <PwaUpdateReloader /> : check update au visibilitychange (throttlé
+            1x/6h via localStorage) + reload auto quand un nouveau SW prend
+            le contrôle. Sans ça, l'utilisatrice devait désinstaller/
+            réinstaller la PWA pour voir les updates.
 
-            <PwaUpdateReloader /> : reload auto quand un nouveau SW prend le
-            contrôle, + force un update check à chaque visibilitychange.
-            Sans ça, l'utilisatrice devait désinstaller/réinstaller la PWA
-            pour voir les updates. */}
+            `reloadOnOnline` volontairement OMIS : il forçait un reload complet
+            à chaque toggle offline→online, coûteux sur mobile avec réseau
+            instable, sans bénéfice — le SW sert déjà depuis cache en offline,
+            et le `onControlling` du PwaUpdateReloader couvre déjà les cas où
+            un update est pending et attend la reconnexion. */}
         <SerwistProvider
           swUrl="/serwist/sw.js"
           options={{ scope: "/" }}
-          reloadOnOnline
         >
           <PwaUpdateReloader />
           {children}
