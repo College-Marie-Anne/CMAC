@@ -40,29 +40,31 @@ export default function RootLayout({
     <html
       lang="fr"
       className={cn("h-full antialiased font-sans", inter.variable)}
-      // Style inline : peinture immédiate par le navigateur avant même que
-      // le CSS global ne soit parsé. Sans ça, un flash blanc apparaissait
-      // entre le démontage d'une page et le paint du root loading
-      // (particulièrement visible sur les navigations inter-pages protégées).
-      // Dark mode ajusté via le script anti-FOUC ci-dessous avant hydratation.
+      // Style inline sur <html> uniquement : peinture immédiate par le
+      // navigateur avant même que le CSS global ne soit parsé. Le script
+      // anti-FOUC ci-dessous modifie ce style pour le dark mode AVANT
+      // l'hydratation React — `suppressHydrationWarning` est obligatoire pour
+      // éviter un mismatch qui ferait planter le rendu client (Next.js 16
+      // remonte ces mismatches en erreurs fatales : "Application error").
+      // Body : pas de style inline — le CSS global (globals.css avec
+      // `!important`) cascade depuis <html> vers <body> sans risque de
+      // mismatch, et Next/React ne touche pas au body pendant l'hydratation.
       style={{ backgroundColor: "#F5F5F5" }}
       suppressHydrationWarning
     >
-      <body
-        className="min-h-full flex flex-col"
-        style={{ backgroundColor: "#F5F5F5" }}
-      >
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Anti-FOUC dark mode + bg — appliqué AVANT toute hydratation.
             Next.js 16 refuse les <script> inline dans les composants React ;
             next/script + strategy=beforeInteractive est le pattern officiel.
             Si dark mode détecté : ajoute `.dark` sur <html> ET surcharge le
-            bg inline de <html>/<body> en noir (#0D0D0D) — sinon l'inline
-            `#F5F5F5` ci-dessus créerait un flash clair à l'ouverture dark. */}
+            bg inline de <html> en noir. On NE touche PAS au body inline
+            (pas de style inline du tout dessus) → React voit le même DOM
+            côté serveur et côté client, pas de mismatch. */}
         <Script
           id="cmac-theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('cmac-theme');var dark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(dark){document.documentElement.classList.add('dark');document.documentElement.style.backgroundColor='#0D0D0D';document.body&&(document.body.style.backgroundColor='#0D0D0D')}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('cmac-theme');var dark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(dark){document.documentElement.classList.add('dark');document.documentElement.style.backgroundColor='#0D0D0D'}}catch(e){}})()`,
           }}
         />
         {/* Le fond bordeaux fixed global a été retiré : il causait un flash
