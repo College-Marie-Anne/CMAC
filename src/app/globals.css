@@ -147,24 +147,20 @@
   }
 }
 
-/* Fond de base pendant les transitions de route et avant l'hydratation.
-   `!important` + CSS hors @layer pour vaincre `@apply bg-background` (blanc
-   pur en light mode) que Tailwind appliquait sinon en plus haute priorité
-   → flash blanc entre chaque transition vers une page protégée.
-   On utilise le gris `bg-cma-gris` (#F5F5F5) car :
-     - Il matche le bg des pages protégées (/feed, /directory, /admin, etc.)
-       → pas de flash visible lors des navigations internes.
-     - Les pages publiques (login, register, splash, pending, maintenance,
-       offline, not-found) définissent leur propre gradient bordeaux inline
-       en SSR, qui recouvre ce gris avant même le premier paint utilisateur
-       → pas de flash sur elles non plus. */
+/* Fond de base global — bordeaux CMA. Peint immédiatement par le navigateur
+   avant toute hydratation React ou parsing CSS complet (anti-FOUC).
+   Choix délibéré : un flash bordeaux subtil sur les transitions vers pages
+   protégées est jugé préférable au flash blanc (Tailwind `@apply
+   bg-background` défaut = blanc pur) signalé en prod, qui cassait davantage
+   l'immersion. `!important` pour vaincre l'application Tailwind. */
 html,
 body {
-  background-color: #F5F5F5 !important;
+  background-color: #3a000f !important;
   overscroll-behavior: none;
 }
 
-/* Dark mode : le body suit si l'utilisatrice a le thème sombre. */
+/* Dark mode : noir profond, remplace le bordeaux pour l'utilisatrice qui
+   a explicitement activé le thème sombre (voir ThemeToggle dans /settings). */
 html.dark,
 html.dark body {
   background-color: #0D0D0D !important;

@@ -40,26 +40,27 @@ export default function RootLayout({
     <html
       lang="fr"
       className={cn("h-full antialiased font-sans", inter.variable)}
-      // Style inline sur <html> uniquement : peinture immédiate par le
-      // navigateur avant même que le CSS global ne soit parsé. Le script
-      // anti-FOUC ci-dessous modifie ce style pour le dark mode AVANT
-      // l'hydratation React — `suppressHydrationWarning` est obligatoire pour
-      // éviter un mismatch qui ferait planter le rendu client (Next.js 16
-      // remonte ces mismatches en erreurs fatales : "Application error").
-      // Body : pas de style inline — le CSS global (globals.css avec
-      // `!important`) cascade depuis <html> vers <body> sans risque de
-      // mismatch, et Next/React ne touche pas au body pendant l'hydratation.
-      style={{ backgroundColor: "#F5F5F5" }}
+      // Style inline sur <html> : peinture bordeaux immédiate par le
+      // navigateur avant même que le CSS global ne soit parsé. Évite le
+      // flash blanc (Tailwind @apply bg-background défaut = blanc) qui était
+      // la pire des deux gênes visuelles rapportées.
+      // Le script anti-FOUC ci-dessous override en noir si dark mode AVANT
+      // hydratation React. `suppressHydrationWarning` indispensable sur
+      // <html> pour que React n'échoue pas en voyant la modification DOM
+      // pré-hydratation (Next.js 16 transforme ces mismatches en erreurs
+      // fatales, ex : issue "Application error: client-side exception").
+      // Le body n'a PAS de style inline → aucun risque de mismatch côté
+      // body, le CSS global (avec !important) cascade depuis <html>.
+      style={{ backgroundColor: "#3a000f" }}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {/* Anti-FOUC dark mode + bg — appliqué AVANT toute hydratation.
+        {/* Anti-FOUC dark mode — appliqué AVANT toute hydratation.
             Next.js 16 refuse les <script> inline dans les composants React ;
             next/script + strategy=beforeInteractive est le pattern officiel.
-            Si dark mode détecté : ajoute `.dark` sur <html> ET surcharge le
-            bg inline de <html> en noir. On NE touche PAS au body inline
-            (pas de style inline du tout dessus) → React voit le même DOM
-            côté serveur et côté client, pas de mismatch. */}
+            Si dark détecté : ajoute `.dark` sur <html> et override le bg
+            inline en noir. Le CSS global (html.dark) prendra ensuite le
+            relais côté body. */}
         <Script
           id="cmac-theme-init"
           strategy="beforeInteractive"
