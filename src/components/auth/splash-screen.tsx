@@ -20,9 +20,10 @@ interface SplashScreenProps {
  *   `motion.div` avec `exit` animation qui est pilotée par le parent. Deux
  *   AnimatePresence imbriquées provoquaient un double-exit (flash, timing
  *   incohérent entre `onComplete` et le démontage du parent).
- * - Après 3s (ou au tap/Enter/Space), `onComplete` est appelé → le parent
+ * - Après 1.5s (ou au tap/Enter/Space), `onComplete` est appelé → le parent
  *   set `showSplash=false` → le parent AnimatePresence anime la sortie → puis
- *   monte LoginForm.
+ *   monte LoginForm. Durée raccourcie de 3s → 1.5s : empilée avec le splash
+ *   natif Android (0.8-1.5s), le total perçu passe de ~4s à ~2-3s.
  *
  * OPTIM PWA : rendu SSR-visible (initial={false}) pour raccourcir le splash
  * natif Android — premier paint contient déjà le logo, pas de opacity:0.
@@ -39,7 +40,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         completedRef.current = true;
         onComplete();
       }
-    }, 3000);
+    }, 1500);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -74,7 +75,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       // Seule l'animation de sortie reste, gérée par l'AnimatePresence parent.
       initial={false}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       <GoldenParticles />
 
