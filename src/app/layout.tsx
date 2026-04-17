@@ -37,16 +37,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={cn("h-full antialiased font-sans", inter.variable)} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col">
-        {/* Anti-FOUC dark mode — appliqué AVANT toute hydratation.
+    <html
+      lang="fr"
+      className={cn("h-full antialiased font-sans", inter.variable)}
+      // Style inline : peinture immédiate par le navigateur avant même que
+      // le CSS global ne soit parsé. Sans ça, un flash blanc apparaissait
+      // entre le démontage d'une page et le paint du root loading
+      // (particulièrement visible sur les navigations inter-pages protégées).
+      // Dark mode ajusté via le script anti-FOUC ci-dessous avant hydratation.
+      style={{ backgroundColor: "#F5F5F5" }}
+      suppressHydrationWarning
+    >
+      <body
+        className="min-h-full flex flex-col"
+        style={{ backgroundColor: "#F5F5F5" }}
+      >
+        {/* Anti-FOUC dark mode + bg — appliqué AVANT toute hydratation.
             Next.js 16 refuse les <script> inline dans les composants React ;
-            next/script + strategy=beforeInteractive est le pattern officiel. */}
+            next/script + strategy=beforeInteractive est le pattern officiel.
+            Si dark mode détecté : ajoute `.dark` sur <html> ET surcharge le
+            bg inline de <html>/<body> en noir (#0D0D0D) — sinon l'inline
+            `#F5F5F5` ci-dessus créerait un flash clair à l'ouverture dark. */}
         <Script
           id="cmac-theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('cmac-theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('cmac-theme');var dark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(dark){document.documentElement.classList.add('dark');document.documentElement.style.backgroundColor='#0D0D0D';document.body&&(document.body.style.backgroundColor='#0D0D0D')}}catch(e){}})()`,
           }}
         />
         {/* Le fond bordeaux fixed global a été retiré : il causait un flash
