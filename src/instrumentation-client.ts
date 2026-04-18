@@ -19,6 +19,16 @@ Sentry.init({
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
+  // Erreurs non-actionnables qu'on ne veut pas dans Sentry.
+  // - UnrecognizedActionError : après un deploy, les hashes de Server Actions
+  //   changent. Les clients avec l'ancienne page en cache (mobile en arrière-
+  //   plan, iOS Safari qui restore la session) tentent d'invoquer un hash
+  //   qui n'existe plus. Next.js catch et fallback vers une navigation full
+  //   (handled = yes), donc pas d'impact UX réel — juste du bruit Sentry.
+  //   Sentry issue 5ac28cf76fc6 — iOS Safari sur /register/invite/:token.
+  //   Ref : https://nextjs.org/docs/messages/failed-to-find-server-action
+  ignoreErrors: ["UnrecognizedActionError"],
+
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
   // Enable logs to be sent to Sentry
