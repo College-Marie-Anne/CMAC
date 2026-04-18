@@ -138,14 +138,44 @@ export async function loginAction(data: LoginFormData): Promise<AuthResult> {
     // Flow safe : verifyOtp + comparaison otpData.user.id === p.id garantit
     // que la session créée correspond au profil dont l'email a reçu le code.
     if (matchedIds.length > 1 && dob && !otp_code) {
+      let anyOtpSent = false;
+      let rateLimited = false;
+
       for (const p of matchedIds) {
         const { data: pEmail } = await admin.rpc(
           "resolve_email_by_profile_id",
           { p_profile_id: p.id }
         );
         if (pEmail) {
-          await supabase.auth.signInWithOtp({ email: pEmail });
+          const { error: otpErr } = await supabase.auth.signInWithOtp({
+            email: pEmail,
+          });
+          if (otpErr) {
+            if (
+              otpErr.message.includes("email rate limit exceeded") ||
+              otpErr.message.includes("over_email_send_rate_limit") ||
+              otpErr.status === 429
+            ) {
+              rateLimited = true;
+            }
+          } else {
+            anyOtpSent = true;
+          }
         }
+      }
+
+      // Aucun OTP n'a pu partir ET le rate limit a été touché → erreur FR
+      // explicite plutôt que l'utilisatrice attende un code qui ne viendra
+      // jamais. Le fix durable est de configurer Resend en SMTP custom.
+      if (!anyOtpSent && rateLimited) {
+        console.warn(
+          "[login] OTP rate limit exceeded — configure Resend SMTP in Supabase dashboard"
+        );
+        return {
+          success: false,
+          error:
+            "Trop de tentatives de connexion récentes. Le serveur d'email est temporairement saturé. Réessayez dans 1h.",
+        };
       }
 
       return {

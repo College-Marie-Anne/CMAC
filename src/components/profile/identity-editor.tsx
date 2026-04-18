@@ -32,10 +32,15 @@ export function IdentityEditor({ initial }: IdentityEditorProps) {
   const [isPending, startTransition] = useTransition();
 
   // Resync si les props changent (router.refresh après save, ou édition
-  // concurrente admin).
+  // concurrente admin). React Compiler warn setState-in-effect mais c'est
+  // le pattern canonique pour "controlled-by-server + localement éditable".
+  // Alternative = key prop sur le parent = casserait le focus/scroll UX.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUsername(initial.username);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFirstName(initial.first_name);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLastName(initial.last_name);
   }, [initial.username, initial.first_name, initial.last_name]);
 

@@ -59,9 +59,23 @@ export async function forgotPasswordAction(
     }
   );
 
-  // On ne révèle jamais si l'email existe ou non
+  // On ne révèle jamais si l'email existe ou non — on retourne toujours
+  // success:true côté client (anti-enumeration). Les erreurs sont seulement
+  // loggées pour observabilité. Un rate limit email Supabase (natif 2/h)
+  // bloque silencieusement l'envoi — à surveiller et fixer via SMTP Resend
+  // dans le dashboard Supabase.
   if (error) {
-    console.error("[forgot-password]", error.message);
+    if (
+      error.message.includes("email rate limit exceeded") ||
+      error.message.includes("over_email_send_rate_limit") ||
+      error.status === 429
+    ) {
+      console.warn(
+        "[forgot-password] email rate limit hit — configure Resend SMTP in Supabase dashboard"
+      );
+    } else {
+      console.error("[forgot-password]", error.message);
+    }
   }
 
   return { success: true };

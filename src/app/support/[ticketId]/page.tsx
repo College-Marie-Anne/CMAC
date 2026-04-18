@@ -27,7 +27,7 @@ const STATUS_LABELS: Record<
   },
   in_progress: {
     label: "En cours",
-    color: "bg-cma-or/10 text-cma-or border-cma-or/30",
+    color: "bg-cma-or/10 text-cma-bordeaux border-cma-or/30",
     icon: Clock,
   },
   resolved: {

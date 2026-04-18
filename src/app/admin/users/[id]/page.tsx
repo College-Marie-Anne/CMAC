@@ -83,7 +83,7 @@ export default async function UserDetailPage({
   ]);
 
   const roleBadge = profile.is_super_admin
-    ? { label: "Super-Admin", icon: Crown, bg: "bg-cma-or/15", text: "text-cma-or" }
+    ? { label: "Super-Admin", icon: Crown, bg: "bg-cma-or/15", text: "text-cma-bordeaux" }
     : profile.role === "admin"
       ? { label: "Admin", icon: ShieldCheck, bg: "bg-cma-vert/15", text: "text-cma-vert" }
       : null;
@@ -271,7 +271,7 @@ export default async function UserDetailPage({
                 {desiredFields.map((d) => (
                   <span
                     key={d.id}
-                    className="text-xs px-2.5 py-1 rounded-full bg-cma-or/10 text-cma-or"
+                    className="text-xs px-2.5 py-1 rounded-full bg-cma-or/10 text-cma-bordeaux"
                   >
                     {d.field_name}
                   </span>

@@ -50,11 +50,16 @@ export function usePushSubscription() {
   const [state, setState] = useState<PushState>("loading");
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
-  // Détection initiale des capacités + lecture de l'état courant
+  // Détection initiale des capacités + lecture de l'état courant.
+  // React Compiler warn setState-in-effect mais c'est le pattern canonique
+  // pour lire des APIs browser (navigator, Notification, PushManager) qui
+  // n'existent pas en SSR. Le state initial est "loading", l'effect le
+  // résout au mount selon les capabilities détectées.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     if (!vapidPublicKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState("no-vapid");
       return;
     }
@@ -64,11 +69,13 @@ export function usePushSubscription() {
       !("PushManager" in window) ||
       typeof Notification === "undefined"
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState("unsupported");
       return;
     }
 
     if (Notification.permission === "denied") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState("denied");
       return;
     }

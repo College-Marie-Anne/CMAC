@@ -319,25 +319,38 @@ export async function createCommentAction(
     if (!parsed.success)
       return { success: false, error: parsed.error.issues[0].message };
 
-    // Vérifier que le parent existe. On autorise les réponses à toute
-    // profondeur (reply sur reply OK) — l'affichage reste aplati à depth=1
-    // côté SSR via `rootOf()`. La structure DB garde parent_id pointant vers
-    // le parent direct pour préserver la chaîne de conversation.
-    if (parsed.data.parent_id) {
+    // Threading max 1 niveau (spec §324) : on peut répondre à un commentaire
+    // racine, mais PAS à une réponse. Si l'utilisatrice tente de répondre à
+    // une réponse (parent.parent_id non null), on ré-ancre automatiquement
+    // au commentaire racine pour préserver l'intent conversationnel tout en
+    // gardant une structure plate.
+    //
+    // Avant ce fix : toute profondeur était acceptée en DB puis aplatie côté
+    // SSR via rootOf(). Ça fonctionnait mais violait la spec et rendait la
+    // structure imprédictible (dataset de recherche, exports, etc.).
+    let finalParentId: string | null = parsed.data.parent_id ?? null;
+    if (finalParentId) {
       const { data: parent, error: parentErr } = await supabase
         .from("forum_comments")
-        .select("id")
-        .eq("id", parsed.data.parent_id)
+        .select("id, parent_id")
+        .eq("id", finalParentId)
         .single();
 
       if (parentErr || !parent)
-        return { success: false, error: "Commentaire parent introuvable" };
+        return { success: false, error: "Commentaire parent introuvable." };
+
+      // Si le parent est lui-même une réponse, on remonte au commentaire
+      // racine (parent.parent_id). Garantit que parent_id pointe TOUJOURS
+      // vers un commentaire racine en DB.
+      if (parent.parent_id) {
+        finalParentId = parent.parent_id;
+      }
     }
 
     const { error } = await supabase.from("forum_comments").insert({
       post_id: parsed.data.post_id,
       author_id: user.id,
-      parent_id: parsed.data.parent_id ?? null,
+      parent_id: finalParentId,
       content: parsed.data.content,
     });
 

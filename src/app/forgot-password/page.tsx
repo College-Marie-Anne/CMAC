@@ -208,9 +208,9 @@ export default function ForgotPasswordPage() {
                 <Link href="/login">
                   <Button
                     variant="outline"
-                    className="rounded-xl gap-2 h-10 px-6"
+                    className="rounded-xl gap-2 h-10 px-6 bg-transparent hover:bg-white/10 transition-colors"
                     style={{
-                      borderColor: "rgba(255,255,255,0.15)",
+                      borderColor: "rgba(245,222,179,0.3)",
                       color: "#F5DEB3",
                     }}
                   >

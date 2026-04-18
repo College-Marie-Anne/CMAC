@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { OfflineBanner } from "@/components/ui/offline-banner";
@@ -97,6 +98,20 @@ export default function RootLayout({
           {children}
         </SerwistProvider>
         <OfflineBanner />
+        {/* Toaster sonner — feedback unifié pour toutes les actions serveur.
+            Usage côté client : `toast.success("...")`, `toast.error("...")`.
+            Voir `@/lib/toast` pour le helper `toastActionResult()`. */}
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          theme="system"
+          toastOptions={{
+            classNames: {
+              toast: "font-sans",
+            },
+          }}
+        />
       </body>
     </html>
   );

@@ -173,6 +173,24 @@ export async function registerAction(
     if (authError?.message?.includes("already registered")) {
       return { success: false, error: "Cet email est déjà utilisé." };
     }
+    // Rate limit email atteint — Supabase Auth a un plafond natif (2/h sur
+    // SMTP par défaut, 30/h sur Pro). Le fix durable est de configurer Resend
+    // comme SMTP custom dans le dashboard Supabase (Authentication → Emails
+    // → SMTP Settings). En attendant, on remonte un message FR explicite
+    // plutôt que le texte brut anglais qui perturbe l'utilisatrice.
+    if (
+      authError?.message?.includes("email rate limit exceeded") ||
+      authError?.message?.includes("over_email_send_rate_limit") ||
+      (authError?.status === 429 &&
+        authError?.message?.toLowerCase().includes("email"))
+    ) {
+      console.warn("[register] email rate limit hit:", authError.message);
+      return {
+        success: false,
+        error:
+          "Trop d'inscriptions récentes. Le serveur d'email est temporairement saturé. Réessayez dans 1h ou contactez un administrateur.",
+      };
+    }
     console.error("[register] signUp failed:", authError);
     return {
       success: false,

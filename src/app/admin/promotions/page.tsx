@@ -676,7 +676,7 @@ export default function PromotionsPage() {
       {pendingPromos.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-cma-or" />
+            <Clock size={18} className="text-cma-bordeaux" />
             En attente de validation ({pendingPromos.length})
           </h2>
           <div className="space-y-3">
@@ -703,7 +703,7 @@ export default function PromotionsPage() {
                           <AlertTriangle size={10} /> Expire {days === 0 ? "aujourd'hui" : "demain"}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-cma-or/10 text-cma-or">
+                        <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-cma-or/10 text-cma-bordeaux">
                           {days}j restants
                         </span>
                       )}
@@ -911,7 +911,7 @@ export default function PromotionsPage() {
 
                       {/* Chef de promo */}
                       {promo.leaderName && (
-                        <div className="flex items-center gap-1.5 mt-2 text-xs text-cma-or">
+                        <div className="flex items-center gap-1.5 mt-2 text-xs text-cma-bordeaux">
                           <Crown size={12} />
                           <span>Chef : {promo.leaderName}</span>
                         </div>
@@ -938,7 +938,7 @@ export default function PromotionsPage() {
                             (fileInputRef.current as any)?.click();
                           }}
                           disabled={uploadingId === promo.id}
-                          className="rounded-lg text-xs gap-1 flex-1 text-cma-or border-cma-or/30 hover:bg-cma-or/5"
+                          className="rounded-lg text-xs gap-1 flex-1 text-cma-bordeaux border-cma-or/30 hover:bg-cma-or/5"
                           aria-label={
                             promo.emblem_url
                               ? `Changer l'emblème de ${promo.name}`

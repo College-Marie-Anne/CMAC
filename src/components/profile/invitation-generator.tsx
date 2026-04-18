@@ -81,6 +81,10 @@ const STATUS_META: Record<
 };
 
 export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
+  // `nowMs` capturé une seule fois au mount — React Compiler marque
+  // Date.now() dans le render comme "impure function". On capture au state
+  // pour avoir une valeur stable à travers les re-renders.
+  const [nowMs] = useState(() => Date.now());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, startGenerate] = useTransition();
@@ -104,7 +108,10 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
   // Cleanup aussi de "locallyCreated" : quand la prop contient déjà un lien
   // avec le même id, on retire notre placeholder local (la prop est
   // la source de vérité).
+  // React Compiler warn setState-in-effect mais c'est une synchro prop→state
+  // intentionnelle (sync after SSR refresh).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocallyRevoked((prev) => {
       if (prev.size === 0) return prev;
       const next = new Set(prev);
@@ -282,8 +289,13 @@ export function InvitationGenerator({ invitations }: InvitationGeneratorProps) {
             const isCopied = copiedId === link.id;
             const isCurrentlyRevoking = isRevoking && revokingId === link.id;
             const expiresDate = new Date(link.expires_at);
+            // `nowMs` capturé au mount du composant (state) plutôt que
+            // Date.now() dans le render : React Compiler marque Date.now()
+            // comme "impure function during render" (effet incompatible avec
+            // le memoization). En pratique, quelques secondes de différence
+            // sur "days left" n'a aucun impact UX visible.
             const daysLeft = Math.max(
-              Math.ceil((expiresDate.getTime() - Date.now()) / MS_PER_DAY),
+              Math.ceil((expiresDate.getTime() - nowMs) / MS_PER_DAY),
               0
             );
 

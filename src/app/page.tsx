@@ -50,7 +50,12 @@ export default function Home() {
 
   useEffect(() => {
     // Après hydratation : si la splash a été vue récemment, skip directement.
+    // React Compiler warn setState-in-effect mais c'est intentionnel ici :
+    // SSR affiche toujours le splash (hydration-safe), useEffect check le
+    // localStorage (client-only) pour éventuellement le cacher. Alternative
+    // (useSyncExternalStore) = bundle + complex pour zero gain UX.
     if (!shouldShowSplash()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowSplash(false);
     }
   }, []);

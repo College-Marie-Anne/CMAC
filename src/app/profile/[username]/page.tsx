@@ -276,7 +276,7 @@ export default async function ProfilePage({
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Domaines désirés</h2>
               <div className="flex flex-wrap gap-1.5">
                 {desiredFields.map((d) => (
-                  <span key={d.id} className="text-xs px-2.5 py-1 rounded-full bg-cma-or/10 text-cma-or">{d.field_name}</span>
+                  <span key={d.id} className="text-xs px-2.5 py-1 rounded-full bg-cma-or/10 text-cma-bordeaux">{d.field_name}</span>
                 ))}
               </div>
             </div>

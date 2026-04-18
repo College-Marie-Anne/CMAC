@@ -194,7 +194,7 @@ export default async function ElectionsHistoryPage() {
                     </div>
                     {isCompleted && e.winner ? (
                       <div className="flex items-center gap-2 rounded-xl bg-cma-or/10 border border-cma-or/20 px-3 py-1.5">
-                        <Trophy size={14} className="text-cma-or" />
+                        <Trophy size={14} className="text-cma-bordeaux" />
                         <span className="text-xs font-semibold text-gray-800">
                           {e.winner.first_name} {e.winner.last_name}
                         </span>
