@@ -46,6 +46,22 @@ export function SerwistProvider(props: SerwistProviderProps) {
       );
     };
 
+    // Google WRS (Web Rendering Service — le renderer de Googlebot) stub
+    // navigator.serviceWorker.register et rejette avec un bare `Error: Rejected`.
+    // Stack frames contiennent `wrsParams.serviceWorkers` / `<anonymous>`. Le
+    // bot n'a pas besoin de SW ; silence pour éviter de polluer Sentry.
+    // Sentry issue 7634beded27f — Googlebot (66.249.83.34) sur /login.
+    const isBotSwStubRejection = (reason: unknown): boolean => {
+      const msg =
+        (reason as { message?: string })?.message ??
+        (typeof reason === "string" ? reason : "");
+      const stack = (reason as { stack?: string })?.stack ?? "";
+      return (
+        msg === "Rejected" &&
+        (stack.includes("wrsParams") || stack.includes("serviceWorker.register"))
+      );
+    };
+
     // Supabase JS utilise navigator.locks pour synchroniser le refresh token
     // entre plusieurs tabs / iframes. Sur certains navigateurs (Samsung
     // Internet observé — Sentry issue a646f851, aussi Firefox Android),
@@ -90,6 +106,11 @@ export function SerwistProvider(props: SerwistProviderProps) {
     const onUnhandled = (e: PromiseRejectionEvent) => {
       if (isSwLoadFailure(e.reason)) {
         console.warn("[sw] registration failed, continuing without PWA:", e.reason);
+        e.preventDefault();
+        return;
+      }
+      if (isBotSwStubRejection(e.reason)) {
+        console.warn("[sw] registration rejected by bot stub (WRS), ignoring:", e.reason);
         e.preventDefault();
         return;
       }
