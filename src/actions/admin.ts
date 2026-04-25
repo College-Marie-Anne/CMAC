@@ -464,21 +464,37 @@ export async function createAdminAction(data: {
     if (existing)
       return { success: false, error: "Ce username est déjà pris" };
 
-    // Create auth user
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    // Service role client : nécessaire ici car
+    //   1. `supabase.auth.signUp()` côté serveur cookie-based remplace la
+    //      session courante (le super-admin) par celle du nouveau user créé.
+    //   2. La policy RLS profiles_insert exige `id = auth.uid()` ; pour éviter
+    //      de basculer la session, on bypass via service role.
+    //   3. `email_confirm: true` skip la confirmation email — la spec exige un
+    //      compte admin immédiatement actif.
+    const admin = createAdminClient();
+
+    const { data: authData, error: signUpError } = await admin.auth.admin.createUser({
       email: data.email,
       password: data.temp_password,
+      email_confirm: true,
     });
 
-    if (signUpError || !authData.user)
+    if (signUpError || !authData.user) {
+      if (signUpError?.message?.toLowerCase().includes("already") ||
+          signUpError?.message?.toLowerCase().includes("registered")) {
+        return { success: false, error: "Cet email est déjà utilisé" };
+      }
       return {
         success: false,
         error: signUpError?.message ?? "Erreur lors de la création du compte",
       };
+    }
 
-    // Create profile
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: authData.user.id,
+    const userId = authData.user.id;
+
+    // INSERT profile via service role (bypass RLS profiles_insert).
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: userId,
       first_name: data.first_name,
       last_name: data.last_name,
       username: data.username,
@@ -492,10 +508,36 @@ export async function createAdminAction(data: {
       terms_version: "1.0",
     });
 
-    if (profileError)
+    if (profileError) {
+      // Rollback : éviter un user auth orphelin si le profile échoue.
+      try {
+        await admin.auth.admin.deleteUser(userId);
+      } catch (cleanupErr) {
+        console.error(
+          `[createAdminAction] Échec rollback auth user ${userId}:`,
+          cleanupErr
+        );
+      }
+      if (profileError.code === "23505") {
+        return { success: false, error: "Ce username est déjà pris" };
+      }
       return { success: false, error: profileError.message };
+    }
 
-    // Audit log auto via trigger trg_audit_profiles_insert (action 'create_admin').
+    // Audit log : le trigger trg_audit_profiles_insert lit `auth.uid()` pour
+    // identifier l'admin créateur, mais l'INSERT est fait via service role
+    // donc `auth.uid()` est NULL côté DB → le trigger no-op. On log via la
+    // RPC log_admin_action depuis le client supabase qui a la session du
+    // super-admin (la RPC est SECURITY DEFINER mais utilise auth.uid() du caller).
+    await supabase.rpc("log_admin_action", {
+      p_action: "create_admin",
+      p_target_type: "profile",
+      p_target_id: userId,
+      p_details: {
+        username: data.username,
+        email: data.email,
+      },
+    });
 
     revalidatePath("/admin/users");
     return { success: true };
