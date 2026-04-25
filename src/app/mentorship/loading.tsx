@@ -22,7 +22,7 @@ export default function MentorshipLoading() {
 
       <div className="flex">
         {/* Sidebar desktop */}
-        <aside className="hidden lg:flex flex-col w-60 min-h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4 shrink-0 space-y-3">
+        <aside className="hidden lg:flex flex-col w-60 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4 shrink-0 space-y-3">
           <Skeleton className="h-24 w-full rounded-2xl" />
           {Array.from({ length: 7 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />

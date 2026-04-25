@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/popover";
 import { createPostAction } from "@/actions/forum";
 import { uploadForumImage } from "@/lib/upload-forum-image";
-import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import type { ForumTag } from "@/lib/types/forum";
 
@@ -21,11 +20,10 @@ interface CreatePostDialogProps {
   tags: ForumTag[];
   open: boolean;
   onClose: () => void;
-  userId: string;
   promoId?: string;
 }
 
-export function CreatePostDialog({ tags, open, onClose, userId, promoId }: CreatePostDialogProps) {
+export function CreatePostDialog({ tags, open, onClose, promoId }: CreatePostDialogProps) {
   const [content, setContent] = useState("");
   const [tagId, setTagId] = useState(() => tags.length === 1 ? tags[0].id : "");
   const [tagOpen, setTagOpen] = useState(false);
@@ -65,8 +63,7 @@ export function CreatePostDialog({ tags, open, onClose, userId, promoId }: Creat
       let imageUrl: string | null = null;
 
       if (imageFile) {
-        const supabase = createClient();
-        const result = await uploadForumImage(supabase, imageFile, userId);
+        const result = await uploadForumImage(imageFile);
         if (result.error) { setError(result.error); return; }
         imageUrl = result.url;
       }

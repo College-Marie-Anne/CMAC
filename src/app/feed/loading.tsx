@@ -24,7 +24,7 @@ export default function FeedLoading() {
 
       <div className="flex">
         {/* Sidebar desktop */}
-        <aside className="hidden lg:flex flex-col w-60 min-h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4 gap-2">
+        <aside className="hidden lg:flex flex-col w-60 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4 gap-2">
           <div className="mb-4 p-4 rounded-2xl bg-gray-50 text-center space-y-2">
             <Skeleton className="w-14 h-14 rounded-full mx-auto" />
             <Skeleton className="h-3 w-24 mx-auto" />

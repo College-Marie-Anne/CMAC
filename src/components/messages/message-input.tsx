@@ -3,20 +3,19 @@
 import { useState, useRef, useCallback } from "react";
 import { Send, ImagePlus, X } from "lucide-react";
 import { sendMessageAction } from "@/actions/messages";
+import { uploadImageAction } from "@/actions/uploads";
 import Image from "next/image";
-import { createClient } from "@/utils/supabase/client";
 import { compressImage } from "@/lib/image-compress";
+import { validateImageFile } from "@/lib/image-magic-bytes";
 
 interface MessageInputProps {
   conversationId: string;
-  userId: string;
   onMessageSent?: () => void;
 }
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-export function MessageInput({ conversationId, userId, onMessageSent }: MessageInputProps) {
+export function MessageInput({ conversationId, onMessageSent }: MessageInputProps) {
   const [content, setContent] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -33,16 +32,20 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
     }
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setError("Format non supporté (JPG, PNG ou WebP)");
-      return;
-    }
     if (file.size > MAX_IMAGE_SIZE) {
       setError("Image trop lourde (max 5 MB)");
+      return;
+    }
+
+    // Pré-check magic bytes côté client pour feedback immédiat
+    // (le check autoritatif est côté serveur dans uploadImageAction).
+    const preCheck = await validateImageFile(file);
+    if (!preCheck.ok) {
+      setError(preCheck.error);
       return;
     }
 
@@ -82,10 +85,9 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
     try {
       let imageUrl: string | null = null;
 
-      // Upload image first if present
+      // Upload image first if present — passe par la Server Action qui
+      // valide les magic bytes côté serveur (anti-spoof file.type)
       if (imageFile) {
-        const supabase = createClient();
-
         // Compression côté client à 1200px max (spec §806)
         let toUpload: File;
         try {
@@ -94,20 +96,18 @@ export function MessageInput({ conversationId, userId, onMessageSent }: MessageI
           toUpload = imageFile;
         }
 
-        const ext = (toUpload.name.split(".").pop() ?? "jpg").toLowerCase();
-        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+        const formData = new FormData();
+        formData.append("file", toUpload);
+        formData.append("bucket", "dm-images");
 
-        const { error: uploadError } = await supabase.storage
-          .from("dm-images")
-          .upload(path, toUpload, { upsert: false });
-
-        if (uploadError) {
-          setError("Erreur lors de l'upload de l'image");
+        const uploadResult = await uploadImageAction(formData);
+        if (uploadResult.error || !uploadResult.path) {
+          setError(uploadResult.error ?? "Erreur lors de l'upload de l'image");
           setIsSending(false);
           return;
         }
 
-        imageUrl = path;
+        imageUrl = uploadResult.path;
       }
 
       const result = await sendMessageAction(conversationId, {

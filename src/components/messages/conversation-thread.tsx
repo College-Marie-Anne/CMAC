@@ -305,7 +305,6 @@ export function ConversationThread({
       {/* Input */}
       <MessageInput
         conversationId={conversationId}
-        userId={currentUserId}
         onMessageSent={handleMessageSent}
       />
     </div>

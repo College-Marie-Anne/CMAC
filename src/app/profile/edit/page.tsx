@@ -157,7 +157,6 @@ export default async function ProfileEditPage() {
             firstName={profile.first_name}
             lastName={profile.last_name}
             currentUrl={profile.avatar_url}
-            userId={user.id}
           />
           <div className="text-center mt-3">
             <p className="text-base font-semibold text-gray-900 dark:text-gray-100">

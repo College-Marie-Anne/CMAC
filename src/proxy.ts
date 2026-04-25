@@ -11,10 +11,55 @@ import { env } from "@/lib/env";
  *  3. Auth guard : les routes protégées redirigent vers `/login` si non authentifié.
  *  4. Routage par statut de profil : pending → /pending, suspended/deactivated → logout.
  *  5. Force change password : must_change_password → /auth/change-password.
+ *  6. CSP nonce-based : génère un nonce par requête pour éliminer `'unsafe-inline'`
+ *     dans `script-src`. Next.js lit la CSP sur les headers de requête pour
+ *     injecter automatiquement le nonce sur ses scripts runtime. Voir
+ *     `node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`.
  *
  * Contrainte : pas de requête DB lourde (exécuté sur chaque navigation).
  * On se limite à `auth.getUser()` + un SELECT léger sur `profiles`.
  */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content-Security-Policy
+// ─────────────────────────────────────────────────────────────────────────────
+// Nonce regénéré à chaque requête. `'strict-dynamic'` signifie que seules les
+// scripts chargés par un script nonce-ed (ex : le bootstrap Next.js qui porte
+// le nonce) sont exécutés — les navigateurs modernes ignorent `'self'` et les
+// allowlists d'origines quand ce token est présent.
+// `'unsafe-eval'` reste requis en dev car React l'utilise pour reconstruire
+// les stack traces côté client. Retiré en prod. `'wasm-unsafe-eval'` reste
+// autorisé en prod (Sentry replay, futurs modules WASM).
+//
+// Les styles conservent temporairement `'unsafe-inline'` : Framer Motion,
+// shadcn/ui et Tailwind injectent des `<style>` runtime sans nonce. Migration
+// style-src → nonce/hash = chantier séparé (cf. audit #12).
+
+function buildCspHeader(nonce: string, isDev: boolean): string {
+  const scriptSrc = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    isDev ? "'unsafe-eval'" : "'wasm-unsafe-eval'",
+  ].join(" ");
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' blob: data: https://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
 
 // Routes qui nécessitent une session active
 const protectedRoutes = [
@@ -63,6 +108,29 @@ const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Nonce + CSP construits une fois par requête.
+  // NB : Next.js lit `Content-Security-Policy` sur les REQUEST headers
+  // pendant le SSR pour extraire `nonce-XXX` et l'injecter sur les scripts
+  // runtime. C'est pour ça qu'on set la CSP sur requestHeaders *et* sur la
+  // response (le client, lui, n'en voit que la version response).
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const cspHeader = buildCspHeader(
+    nonce,
+    process.env.NODE_ENV !== "production",
+  );
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", cspHeader);
+
+  // Helper local : toute NextResponse.next() utilisée ici doit porter les
+  // requestHeaders modifiés (nonce + CSP) pour que le SSR les voit, et la CSP
+  // sur la response pour que le navigateur l'applique.
+  const makeNext = () => {
+    const res = NextResponse.next({ request: { headers: requestHeaders } });
+    res.headers.set("Content-Security-Policy", cspHeader);
+    return res;
+  };
+
   // 1. Mode maintenance — bloque tout sauf /maintenance
   const maintenanceMode =
     process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
@@ -79,7 +147,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  let supabaseResponse = NextResponse.next({ request });
+  let supabaseResponse = makeNext();
 
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
     cookies: {
@@ -90,7 +158,7 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value)
         );
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = makeNext();
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options)
         );

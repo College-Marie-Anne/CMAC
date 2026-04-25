@@ -34,7 +34,9 @@ Les résultats s'affichent en TAP (Test Anything Protocol) : `ok N - description
 | `04_invitation_links_rls_test.sql` | 4 | Alumni active create, inviter revoke, admin access |
 | `05_audit_log_rls_test.sql` | 3 | Admin-only SELECT, INSERT uniquement via trigger SECURITY DEFINER |
 | `06_notifications_rls_test.sql` | 4 | recipient only (SELECT/UPDATE/DELETE) |
-| **Total** | **28** | |
+| `07_mentorship_accept_test.sql` | 7 | RPC `accept_mentorship_request` : guards + locks post-035 (race TOCTOU request + quota mentee) |
+| `08_dm_block_atomic_test.sql` | 6 | RPC `send_direct_message` : guard blocked_users fusionné atomiquement avec INSERT (post-035) |
+| **Total** | **41** | |
 
 ## Pattern utilisé
 

@@ -3,58 +3,13 @@ import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 
 /**
- * Content Security Policy — construite en fonction des ressources utilisées :
- *  - self : notre origine
- *  - Supabase : REST (https://*.supabase.co) + Realtime (wss://*.supabase.co)
- *  - Google Fonts : fonts.googleapis.com (CSS) + fonts.gstatic.com (woff)
- *  - data: / blob: : avatars uploadés, previews images
- *  - 'unsafe-inline' scripts : requis pour le script anti-FOUC beforeInteractive
- *    et le bundle Next.js qui inline certains scripts (pas de nonce activé ici)
- *  - 'unsafe-inline' styles : requis pour Framer Motion + shadcn/ui + Tailwind
- *  - 'unsafe-eval' : UNIQUEMENT en dev (Turbopack HMR utilise eval pour fast
- *    refresh). Retiré en prod pour réduire la surface XSS — aucune dépendance
- *    runtime (Sentry, Framer Motion, Supabase, Radix, Resend) ne nécessite
- *    eval en prod. Si un crash apparaît après déploiement, vérifier la console
- *    pour "EvalError" ou "CSP violation: unsafe-eval".
- *  - 'wasm-unsafe-eval' : ajouté en prod par sécurité pour les WASM modules
- *    (Sentry replay peut en utiliser pour la compression). Beaucoup moins
- *    risqué qu'unsafe-eval (le code WASM ne peut pas accéder au DOM directement).
+ * Headers de sécurité STATIQUES — appliqués à toutes les routes.
  *
- * Sentry : le tunnel `/monitoring` route via notre domaine, donc pas besoin
- * de whitelist sentry.io dans connect-src.
+ * La Content-Security-Policy, elle, est générée DYNAMIQUEMENT par le proxy
+ * (`src/proxy.ts`) pour pouvoir porter un nonce par requête et éliminer
+ * `'unsafe-inline'` côté scripts. Voir le commentaire dans proxy.ts.
  */
-const isDev = process.env.NODE_ENV !== "production";
-
-const scriptSrc = [
-  "'self'",
-  "'unsafe-inline'",
-  // unsafe-eval uniquement en dev (Turbopack HMR)
-  isDev ? "'unsafe-eval'" : null,
-  // WASM toléré en prod (Sentry replay, futurs WASM modules)
-  !isDev ? "'wasm-unsafe-eval'" : null,
-]
-  .filter(Boolean)
-  .join(" ");
-
-const cspDirectives = [
-  "default-src 'self'",
-  `script-src ${scriptSrc}`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' blob: data: https://*.supabase.co",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "frame-src 'none'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: cspDirectives },
   // Clickjacking
   { key: "X-Frame-Options", value: "DENY" },
   // MIME sniffing
@@ -78,6 +33,16 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // Les uploads d'image passent par une Server Action (`uploadImageAction`)
+  // qui reçoit le fichier en FormData pour y appliquer la validation magic
+  // bytes côté serveur. La limite par défaut des Server Actions (1 MB) n'est
+  // pas suffisante pour les images forum/DM (plafond métier : 5 MB). 6 MB
+  // laisse une marge pour l'overhead multipart/form-data.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
   images: {
     remotePatterns: [
       {

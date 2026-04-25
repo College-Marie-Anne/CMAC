@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import Script from "next/script";
+import { headers } from "next/headers";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -32,11 +32,19 @@ export const viewport: Viewport = {
   themeColor: "#3a000f",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce généré par le proxy (src/proxy.ts) via crypto.randomUUID() à chaque
+  // requête. Next.js l'injecte automatiquement sur ses propres scripts runtime
+  // (hydratation, chunks) en lisant la CSP sur les request headers. Pour nos
+  // <Script> manuels (anti-FOUC ci-dessous), on le passe explicitement.
+  // null-safe : en dev sans proxy ou pendant build static, la prop `nonce`
+  // undefined est ignorée par next/script.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="fr"
@@ -57,14 +65,16 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Anti-FOUC dark mode — appliqué AVANT toute hydratation.
-            Next.js 16 refuse les <script> inline dans les composants React ;
-            next/script + strategy=beforeInteractive est le pattern officiel.
-            Si dark détecté : ajoute `.dark` sur <html> et override le bg
-            inline en noir. Le CSS global (html.dark) prendra ensuite le
-            relais côté body. */}
-        <Script
-          id="cmac-theme-init"
-          strategy="beforeInteractive"
+            Rendu comme <script> natif dans ce Server Component : pas de
+            re-exécution côté client, le navigateur l'a déjà évalué au parse.
+            `suppressHydrationWarning` : les navigateurs strippent l'attribut
+            nonce après parse HTML (anti-vol via CSS attribute selectors),
+            ce qui crée un mismatch SSR/client sur cet attribut uniquement.
+            Le script exécute correctement côté serveur (CSP valide le
+            nonce), seul le warning React est neutralisé. */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('cmac-theme');var dark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(dark){document.documentElement.classList.add('dark');document.documentElement.style.backgroundColor='#0D0D0D'}}catch(e){}})()`,
           }}

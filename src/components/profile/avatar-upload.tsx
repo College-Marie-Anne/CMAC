@@ -4,17 +4,17 @@ import { useState, useRef, useTransition } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { updateAvatarAction } from "@/actions/profile";
-import { createClient } from "@/utils/supabase/client";
+import { uploadImageAction } from "@/actions/uploads";
 import { compressImage } from "@/lib/image-compress";
+import { validateImageFile } from "@/lib/image-magic-bytes";
 
 interface AvatarUploadProps {
   firstName: string;
   lastName: string;
   currentUrl: string | null;
-  userId: string;
 }
 
-export function AvatarUpload({ firstName, lastName, currentUrl, userId }: AvatarUploadProps) {
+export function AvatarUpload({ firstName, lastName, currentUrl }: AvatarUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentUrl);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -24,10 +24,6 @@ export function AvatarUpload({ firstName, lastName, currentUrl, userId }: Avatar
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Format : JPG, PNG ou WebP");
-      return;
-    }
     if (file.size > 2 * 1024 * 1024) {
       setError("Taille max : 2 MB");
       return;
@@ -38,7 +34,15 @@ export function AvatarUpload({ firstName, lastName, currentUrl, userId }: Avatar
     setPreview(objectUrl);
 
     startTransition(async () => {
-      const supabase = createClient();
+      // Pré-check magic bytes côté client pour feedback immédiat.
+      // Le check autoritatif se fait côté serveur dans uploadImageAction.
+      const preCheck = await validateImageFile(file);
+      if (!preCheck.ok) {
+        setError(preCheck.error);
+        setPreview(currentUrl);
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
 
       // Compression côté client à 400px max, forcé en JPEG (spec §804).
       // Réduit drastiquement le poids des PNG d'avatar.
@@ -53,22 +57,21 @@ export function AvatarUpload({ firstName, lastName, currentUrl, userId }: Avatar
         toUpload = file;
       }
 
-      const ext = (toUpload.name.split(".").pop() ?? "jpg").toLowerCase();
-      const path = `${userId}/avatar.${ext}`;
+      const formData = new FormData();
+      formData.append("file", toUpload);
+      formData.append("bucket", "avatars");
 
-      const { error: uploadErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, toUpload, { upsert: true });
-
-      if (uploadErr) {
-        setError("Erreur d'upload");
+      const uploadResult = await uploadImageAction(formData);
+      if (uploadResult.error || !uploadResult.url) {
+        setError(uploadResult.error ?? "Erreur d'upload");
         setPreview(currentUrl);
+        URL.revokeObjectURL(objectUrl);
         return;
       }
 
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-      // Add cache-bust to force refresh
-      const url = `${urlData.publicUrl}?t=${Date.now()}`;
+      // Cache-bust pour forcer le navigateur à re-télécharger (upsert sur
+      // le même path → URL identique mais contenu changé)
+      const url = `${uploadResult.url}?t=${Date.now()}`;
 
       const result = await updateAvatarAction(url);
       if (!result.success) {

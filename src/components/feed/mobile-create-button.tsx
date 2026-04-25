@@ -6,10 +6,9 @@ import type { ForumTag } from "@/lib/types/forum";
 
 interface MobileCreateButtonProps {
   tags: ForumTag[];
-  userId: string;
 }
 
-export function MobileCreateButton({ tags, userId }: MobileCreateButtonProps) {
+export function MobileCreateButton({ tags }: MobileCreateButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,7 +25,6 @@ export function MobileCreateButton({ tags, userId }: MobileCreateButtonProps) {
         tags={tags}
         open={open}
         onClose={() => setOpen(false)}
-        userId={userId}
       />
     </>
   );

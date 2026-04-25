@@ -397,7 +397,6 @@ export function PostFeed({
         tags={tags}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        userId={currentUserId}
         promoId={promoId}
       />
     </>

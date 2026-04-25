@@ -66,6 +66,12 @@ export const supportTicketLimiter = createLimiter("support-ticket", 5, "1 d");
 // ─── Push subscribe (par user ID) — 5/heure contre l'abus (script qui re-souscrit) ───
 export const pushSubscribeLimiter = createLimiter("push-sub", 5, "1 h");
 
+// ─── Uploads images (par user ID) — protège le coût bande passante / storage
+// indépendamment de la rate limit post/DM qui, elle, filtre la création de
+// la ressource métier. Un attaquant qui ne crée jamais de post peut sinon
+// saturer le bucket à coût nul côté app.
+export const uploadImageLimiter = createLimiter("upload-image", 20, "1 h");
+
 // ─── Identité (username/prénoms/nom) — 3/jour par user
 // Changement rare normalement ; la limite évite qu'un compte compromis change
 // d'identité en boucle pour brouiller l'audit / imiter d'autres utilisatrices.

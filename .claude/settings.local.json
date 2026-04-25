@@ -212,7 +212,13 @@
       "Bash(find C:/Projets/CMAC/src/actions -name \"*.ts\" -exec head -1 {} \\\\;)",
       "Bash(find C:/Projets/CMAC/src/actions -name \"*.ts\" -exec basename {} \\\\;)",
       "Bash(find /c/Projets/CMAC/src -name \"*.tsx\" -exec grep -l \"sw.ts\\\\|service-worker\\\\|offline\" {} \\\\;)",
-      "Bash(grep -n \"^\\\\s*//\" C:/Projets/CMAC/src/actions/profile.ts)"
+      "Bash(grep -n \"^\\\\s*//\" C:/Projets/CMAC/src/actions/profile.ts)",
+      "Bash(npx vitest *)",
+      "Bash(curl -s -I http://localhost:3000/)",
+      "Bash(python -m json.tool)",
+      "Bash(sort -k5 -n -r)",
+      "Bash(node -e ' *)",
+      "Bash(node tmp-bundle-sizes.mjs)"
     ]
   }
 }

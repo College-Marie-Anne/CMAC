@@ -39,7 +39,9 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import { compressImage } from "@/lib/image-compress";
+import { validateImageFile } from "@/lib/image-magic-bytes";
 import { updatePromotionAction, rejectPromotionAction } from "@/actions/admin";
+import { uploadImageAction } from "@/actions/uploads";
 
 type Promotion = {
   id: string;
@@ -152,11 +154,15 @@ export default function PromotionsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Upload emblème vers Supabase Storage
-  // Formats acceptés : PNG, WebP, JPG/JPEG. SVG exclu (XSS).
+  // Upload emblème via Server Action (valide magic bytes + droits admin
+  // côté serveur). Formats acceptés : PNG, WebP, JPG/JPEG (SVG exclu — XSS).
   // 200x200 max. compressImage conserve le MIME d'entrée → JPEG reste JPEG,
   // PNG reste PNG (transparence préservée).
   const uploadEmblem = async (file: File, promoId: string): Promise<string | null> => {
+    // Pré-check magic bytes côté client pour feedback immédiat
+    const preCheck = await validateImageFile(file);
+    if (!preCheck.ok) return null;
+
     let toUpload: File;
     try {
       toUpload = await compressImage(file, {
@@ -167,20 +173,13 @@ export default function PromotionsPage() {
       toUpload = file;
     }
 
-    const ext = (toUpload.name.split(".").pop() ?? "png").toLowerCase();
-    const path = `${promoId}.${ext}`;
+    const formData = new FormData();
+    formData.append("file", toUpload);
+    formData.append("bucket", "emblems");
+    formData.append("promoId", promoId);
 
-    const { error: uploadError } = await supabase.storage
-      .from("emblems")
-      .upload(path, toUpload, { upsert: true });
-
-    if (uploadError) return null;
-
-    const { data: urlData } = supabase.storage
-      .from("emblems")
-      .getPublicUrl(path);
-
-    return urlData.publicUrl;
+    const result = await uploadImageAction(formData);
+    return result.url;
   };
 
   // Créer une promotion

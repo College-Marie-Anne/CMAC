@@ -196,9 +196,17 @@ export default async function FeedPage({
       </header>
 
       <div className="flex">
-        {/* Sidebar desktop */}
-        <aside className="hidden lg:flex flex-col w-60 min-h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4">
-          <div className="mb-6 p-4 rounded-2xl bg-gray-50 text-center">
+        {/* Sidebar desktop : hauteur fixe viewport-minus-header + 3 sections.
+            - User card + bottom actions : shrink-0 (toujours visibles)
+            - Nav : flex-1 overflow-y-auto min-h-0 (scrolle en interne si
+              beaucoup d'items ; min-h-0 est indispensable pour qu'un flex
+              item puisse descendre sous sa taille naturelle et activer
+              overflow).
+            Sans ça, le contenu poussait le sidebar plus haut que le
+            viewport → le bouton déconnexion passait sous le fold et
+            forçait à scroller tout le feed pour l'atteindre. */}
+        <aside className="hidden lg:flex flex-col w-60 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-gray-100 bg-white p-4">
+          <div className="shrink-0 mb-6 p-4 rounded-2xl bg-gray-50 text-center">
             <div className="w-14 h-14 rounded-full bg-cma-bordeaux flex items-center justify-center text-white text-lg font-semibold mx-auto mb-2">{initials}</div>
             <p className="text-sm font-semibold text-gray-900">{profile.first_name} {profile.last_name}</p>
             <p className="text-xs text-gray-400">@{profile.username}</p>
@@ -208,7 +216,7 @@ export default async function FeedPage({
               </span>
             )}
           </div>
-          <nav className="space-y-1 flex-1" aria-label="Navigation principale">
+          <nav className="space-y-1 flex-1 overflow-y-auto min-h-0" aria-label="Navigation principale">
             {[
               { href: "/feed", icon: Users, label: "Fil d'actualité", active: true, implemented: true },
               { href: "/directory", icon: Search, label: "Annuaire", implemented: true },
@@ -251,7 +259,7 @@ export default async function FeedPage({
               );
             })}
           </nav>
-          <div className="space-y-1 pt-4 border-t border-gray-100">
+          <div className="shrink-0 space-y-1 pt-4 border-t border-gray-100">
             {isAdmin && (
               <a href="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ color: "#D4A017" }}>
                 <LayoutDashboard size={18} />
@@ -297,7 +305,6 @@ export default async function FeedPage({
         </Link>
         <MobileCreateButton
           tags={(tags ?? []).map((t) => ({ ...t, is_system: t.is_system ?? false }))}
-          userId={user.id}
         />
         {isAdmin ? (
           <div className="flex flex-col items-center gap-0.5 text-gray-300 cursor-not-allowed select-none" title="Non disponible pour les admins" aria-disabled="true">
