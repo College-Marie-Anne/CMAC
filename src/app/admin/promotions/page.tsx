@@ -536,7 +536,7 @@ export default function PromotionsPage() {
                 <Label className="text-xs text-gray-500 mb-1.5 block">
                   Année de début (plage inclusive)
                 </Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <YearSelect
                     value={startYearFrom}
                     onChange={setStartYearFrom}

@@ -136,7 +136,7 @@ export default function CreateAdminPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-gray-500 mb-1.5 block">Prénoms</Label>
                 <Input {...register("first_name")} placeholder="Prénoms" className="rounded-xl h-10" disabled={isPending} />
